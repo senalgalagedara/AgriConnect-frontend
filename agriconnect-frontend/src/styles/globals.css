@@ -1,0 +1,209 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: Arial, sans-serif;
+  background: #f5f5f5;
+  color: #333;
+}
+
+/* Layout */
+.dashboard {
+  display: flex;
+  height: 100vh;
+}
+
+.sidebar {
+  width: 220px;
+  background: #f0fdf4;
+  border-right: 1px solid #ddd;
+  padding: 20px;
+}
+
+.logo {
+  color: #15803d;
+  font-size: 20px;
+  font-weight: bold;
+  margin-bottom: 20px;
+}
+
+.nav-link {
+  display: block;
+  padding: 10px;
+  border-radius: 6px;
+  color: #333;
+  text-decoration: none;
+  transition: background 0.2s;
+}
+
+.nav-link:hover {
+  background: #bbf7d0;
+}
+
+/* Main Content */
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #fff;
+  border-bottom: 1px solid #ddd;
+  padding: 10px 20px;
+}
+
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.icon {
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.profile {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.avatar {
+  width: 32px;
+  height: 32px;
+  background: #15803d;
+  color: #fff;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Content */
+.content {
+  padding: 20px;
+}
+
+.content h1 {
+  font-size: 22px;
+  margin-bottom: 20px;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+}
+
+.province-card {
+  background: #bbf7d0;
+  color: #000;
+  font-weight: bold;
+  padding: 40px;
+  border-radius: 12px;
+  text-align: center;
+  text-decoration: none;
+  box-shadow: 0px 2px 5px rgba(0,0,0,0.1);
+  transition: background 0.2s;
+}
+
+.province-card:hover {
+  background: #86efac;
+}
+/* Product Page Layout */
+.product-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Row for table + status */
+.product-row {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+/* Farmers Table */
+.farmer-table {
+  flex: 3;
+  border-collapse: collapse;
+  width: 100%;
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.farmer-table th,
+.farmer-table td {
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+  font-size: 14px;
+}
+
+.farmer-table th {
+  background: #f9fafb;
+  font-weight: bold;
+}
+
+/* Inventory Status Card */
+.inventory-status {
+  flex: 1;
+  background: #fff;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  min-width: 250px;
+}
+
+.inventory-status h3 {
+  margin-bottom: 10px;
+}
+
+.inventory-status input {
+  width: 80px;
+  padding: 4px;
+  margin-left: 6px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.inventory-status .final-price {
+  color: #15803d;
+  font-weight: bold;
+}
+
+.add-btn {
+  margin-top: 12px;
+  background: #15803d;
+  color: white;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.add-btn:hover {
+  background: #00471a;
+}
+
+/* Responsive: stack on small screens */
+@media (max-width: 768px) {
+  .product-row {
+    flex-direction: column;
+  }
+  .inventory-status {
+    width: 100%;
+  }
+}
