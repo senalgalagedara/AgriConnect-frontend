@@ -6,7 +6,7 @@ export default function Sidebar() {
       <h2 className="logo">AgriConnect</h2>
       <nav>
         <Link href="/" className="nav-link">
-          📦 Inventory
+          Inventory
         </Link>
       </nav>
     </div>

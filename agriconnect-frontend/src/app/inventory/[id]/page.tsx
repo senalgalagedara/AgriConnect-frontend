@@ -4,11 +4,12 @@ import { useEffect, useState } from "react";
 import Sidebar from "../../../components/sidebar";
 import Navbar from "../../../components/navbar";
 
-interface Farmer {
+interface Product {
   id: number;
-  name: string;
-  quantity: number;
-  unitPrice: number;
+  product_name: string;
+  qty: number;
+  farmer_price: number;
+  farmer_id: number;
 }
 
 interface ItemPageProps {
@@ -16,25 +17,62 @@ interface ItemPageProps {
 }
 
 export default function ItemPage({ params }: ItemPageProps) {
-  const [farmers, setFarmers] = useState<Farmer[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [dailyLimit, setDailyLimit] = useState(10);
   const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
-    // Mock API (replace with backend later)
-    setFarmers([
-      { id: 1, name: "Senal Galagedara", quantity: 150, unitPrice: 120 },
-      { id: 2, name: "Mirishabyapa", quantity: 150, unitPrice: 100 },
-      { id: 3, name: "Yasith Navodya", quantity: 150, unitPrice: 110 },
-    ]);
+    const fetchProducts = async () => {
+      try {
+        const res = await fetch(`http://localhost:5000/products/${params.id}`);
+        const data = await res.json();
+        setProducts(data);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchProducts();
   }, [params.id]);
 
   const avgPrice =
-    farmers.length > 0
-      ? farmers.reduce((acc, f) => acc + f.unitPrice, 0) / farmers.length
+    products.length > 0
+      ? products.reduce((acc, p) => acc + p.farmer_price, 0) / products.length
       : 0;
 
   const finalPrice = avgPrice + avgPrice * 0.02;
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    const formData = new FormData(e.currentTarget);
+    const newProduct = {
+      product_name: formData.get("product_name"),
+      in_location: formData.get("in_location"),
+      d_limit: Number(formData.get("d_limit")),
+      qty: Number(formData.get("qty")),
+      category: formData.get("category"),
+      final_price: Number(formData.get("final_price")),
+      farmer_price: Number(formData.get("farmer_price")),
+      farmer_id: Number(formData.get("farmer_id")),
+    };
+
+    try {
+      const res = await fetch("http://localhost:5000/products/1", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newProduct),
+      });
+
+      if (!res.ok) throw new Error("Failed to add product");
+      const addedProduct = await res.json();
+
+      setProducts((prev) => [...prev, addedProduct]);
+      setShowModal(false);
+    } catch (err) {
+      console.error(err);
+      alert("Error adding product");
+    }
+  };
 
   return (
     <div className="dashboard">
@@ -46,23 +84,23 @@ export default function ItemPage({ params }: ItemPageProps) {
 
           {/* Wrap table + status in a row */}
           <div className="product-row">
-            {/* Farmers Table */}
+            {/* Products Table */}
             <table className="farmer-table">
               <thead>
                 <tr>
                   <th>No.</th>
-                  <th>Farmer Name</th>
+                  <th>Product Name</th>
                   <th>Quantity</th>
                   <th>Unit Price</th>
                 </tr>
               </thead>
               <tbody>
-                {farmers.map((farmer, index) => (
-                  <tr key={farmer.id}>
+                {products.map((p, index) => (
+                  <tr key={p.id}>
                     <td>{index + 1}</td>
-                    <td>{farmer.name}</td>
-                    <td>{farmer.quantity} Units</td>
-                    <td>Rs. {farmer.unitPrice}</td>
+                    <td>{p.product_name}</td>
+                    <td>{p.qty} Units</td>
+                    <td>Rs. {p.farmer_price}</td>
                   </tr>
                 ))}
               </tbody>
@@ -99,21 +137,30 @@ export default function ItemPage({ params }: ItemPageProps) {
         <div className="modal-overlay">
           <div className="modal-content">
             <h3>Add Products</h3>
-            <form className="product-form">
-              <label>Farmer NIC</label>
-              <input type="text" placeholder="Enter NIC" />
+            <form className="product-form" onSubmit={handleSubmit}>
+              <label>Farmer ID</label>
+              <input type="number" name="farmer_id" placeholder="Enter Farmer ID" required />
 
-              <label>Product ID</label>
-              <input type="text" placeholder="Product ID" defaultValue={`P${params.id}`} />
+              <label>Product Name</label>
+              <input type="text" name="product_name" placeholder="Product Name" required />
+
+              <label>Location</label>
+              <input type="text" name="in_location" placeholder="Enter Location" />
+
+              <label>Daily Limit</label>
+              <input type="number" name="d_limit" placeholder="Daily Limit" defaultValue={dailyLimit} />
 
               <label>Quantity</label>
-              <input type="number" placeholder="Enter Quantity" />
+              <input type="number" name="qty" placeholder="Enter Quantity" required />
 
-              <label>Produce Date</label>
-              <input type="date" />
+              <label>Category</label>
+              <input type="text" name="category" placeholder="Enter Category" />
+
+              <label>Final Price</label>
+              <input type="number" name="final_price" placeholder="Final Price" />
 
               <label>Unit Price</label>
-              <input type="number" placeholder="Enter Unit Price" />
+              <input type="number" name="farmer_price" placeholder="Enter Unit Price" required />
 
               <div className="form-actions">
                 <button type="submit">Submit</button>
