@@ -10,7 +10,6 @@ body {
   color: #333;
 }
 
-/* Layout */
 .dashboard {
   display: flex;
   height: 100vh;
