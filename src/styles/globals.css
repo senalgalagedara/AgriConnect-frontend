@@ -36,14 +36,12 @@ body {
   border-radius: 6px;
   color: #333;
   text-decoration: none;
-  transition: background 0.2s;
 }
 
 .nav-link:hover {
   background: #bbf7d0;
 }
 
-/* Main Content */
 .main {
   flex: 1;
   display: flex;
@@ -104,7 +102,7 @@ body {
 }
 
 .province-card {
-  background: #bbf7d0;
+  background: #00471a;
   color: #000;
   font-weight: bold;
   padding: 40px;
@@ -112,7 +110,6 @@ body {
   text-align: center;
   text-decoration: none;
   box-shadow: 0px 2px 5px rgba(0,0,0,0.1);
-  transition: background 0.2s;
 }
 
 .province-card:hover {
@@ -191,14 +188,12 @@ body {
   border: none;
   border-radius: 6px;
   cursor: pointer;
-  transition: background 0.2s ease;
 }
 
 .add-btn:hover {
   background: #00471a;
 }
 
-/* Responsive: stack on small screens */
 @media (max-width: 768px) {
   .product-row {
     flex-direction: column;
