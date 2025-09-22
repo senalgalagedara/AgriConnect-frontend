@@ -11,7 +11,7 @@ interface Province {
   capacity: number;
   current_stock: number;
   total_products: number;
-  total_current_stock: number;
+  total_current_stock: number | string | null; // allow possible API inconsistencies
   location: string;
   manager_name: string;
 }
@@ -31,20 +31,20 @@ export default function Home() {
     try {
       setLoading(true);
       const response = await fetch(`${API_BASE_URL}/provinces`);
-      
+
       if (!response.ok) {
-        throw new Error('Failed to fetch provinces');
+        throw new Error("Failed to fetch provinces");
       }
-      
+
       const data = await response.json();
       if (data.success) {
         setProvinces(data.data);
       } else {
-        setError(data.message || 'Failed to fetch provinces');
+        setError(data.message || "Failed to fetch provinces");
       }
     } catch (err) {
-      console.error('Error fetching provinces:', err);
-      setError('Failed to fetch provinces');
+      console.error("Error fetching provinces:", err);
+      setError("Failed to fetch provinces");
     } finally {
       setLoading(false);
     }
@@ -64,6 +64,22 @@ export default function Home() {
     );
   }
 
+  // Utility: safely coerce any value to number
+  const safeNumber = (val: unknown): number => {
+    const n = Number(val);
+    return isNaN(n) ? 0 : n;
+  };
+
+  const totalProducts = provinces.reduce(
+    (sum, p) => sum + safeNumber(p.total_products),
+    0
+  );
+
+  const totalStock = provinces.reduce(
+    (sum, p) => sum + safeNumber(p.total_current_stock),
+    0
+  );
+
   return (
     <div className="dashboard">
       <Sidebar />
@@ -73,7 +89,9 @@ export default function Home() {
         <div className="content">
           <div className="dashboard-header">
             <h1>Inventory Dashboard</h1>
-            <p className="dashboard-subtitle">Select a province to manage inventory</p>
+            <p className="dashboard-subtitle">
+              Select a province to manage inventory
+            </p>
           </div>
 
           {error && (
@@ -87,16 +105,15 @@ export default function Home() {
 
           <div className="card-grid">
             {provinces.map((province) => (
-              <ProvinceCard 
+              <ProvinceCard
                 key={province.id}
                 id={province.id}
-                name={province.name} 
+                name={province.name}
                 location={province.location}
                 manager={province.manager_name}
-                totalProducts={province.total_products}
-                currentStock={province.total_current_stock}
+                totalProducts={safeNumber(province.total_products)}
+                currentStock={safeNumber(province.total_current_stock)}
                 capacity={province.capacity}
-                // Only Western Province is fully implemented
                 href={province.id === 1 ? "/inventory" : "#"}
                 isActive={province.id === 1}
               />
@@ -108,25 +125,21 @@ export default function Home() {
               <h3>Total Provinces</h3>
               <p className="stat-number">{provinces.length}</p>
             </div>
-            
+
             <div className="stat-card">
               <h3>Active Provinces</h3>
               <p className="stat-number">1</p>
               <span className="stat-label">Western Province</span>
             </div>
-            
+
             <div className="stat-card">
               <h3>Total Products</h3>
-              <p className="stat-number">
-                {provinces.reduce((sum, p) => sum + p.total_products, 0)}
-              </p>
+              <p className="stat-number">{totalProducts}</p>
             </div>
-            
+
             <div className="stat-card">
               <h3>Total Stock</h3>
-              <p className="stat-number">
-                {provinces.reduce((sum, p) => sum + p.total_current_stock, 0).toFixed(0)} kg
-              </p>
+              <p className="stat-number">{totalStock.toFixed(0)} kg</p>
             </div>
           </div>
         </div>

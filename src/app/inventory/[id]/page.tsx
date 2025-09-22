@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useParams } from "next/navigation"; // ✅ Fix: useParams hook
 import Sidebar from "../../../components/sidebar";
 import Navbar from "../../../components/navbar";
 
@@ -26,13 +27,12 @@ interface Product {
   suppliers?: Supplier[];
 }
 
-interface ItemPageProps {
-  params: { id: string };
-}
-
 const API_BASE_URL = "http://localhost:5000/api";
 
-export default function ItemPage({ params }: ItemPageProps) {
+export default function ItemPage() {
+  const params = useParams<{ id: string }>(); // ✅ useParams returns { id }
+  const id = params?.id; // unwrap id safely
+
   const [product, setProduct] = useState<Product | null>(null);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [dailyLimit, setDailyLimit] = useState(0);
@@ -44,54 +44,58 @@ export default function ItemPage({ params }: ItemPageProps) {
     const fetchProductData = async () => {
       try {
         setLoading(true);
-        
-        // Fetch product details with suppliers
-        const response = await fetch(`${API_BASE_URL}/products/${params.id}/suppliers`);
+
+        const response = await fetch(
+          `${API_BASE_URL}/products/${id}/suppliers`
+        );
         if (!response.ok) {
-          throw new Error('Failed to fetch product data');
+          throw new Error("Failed to fetch product data");
         }
-        
+
         const data = await response.json();
         if (data.success) {
           setProduct(data.data);
           setSuppliers(data.data.suppliers || []);
           setDailyLimit(data.data.daily_limit || 0);
         } else {
-          setError(data.message || 'Failed to fetch product data');
+          setError(data.message || "Failed to fetch product data");
         }
       } catch (err) {
-        console.error('Error fetching product data:', err);
-        setError('Failed to fetch product data');
+        console.error("Error fetching product data:", err);
+        setError("Failed to fetch product data");
       } finally {
         setLoading(false);
       }
     };
 
-    if (params.id) {
+    if (id) {
       fetchProductData();
     }
-  }, [params.id]);
+  }, [id]);
 
   const handleDailyLimitUpdate = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/products/${params.id}/daily-limit`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ daily_limit: dailyLimit }),
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/products/${id}/daily-limit`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ daily_limit: dailyLimit }),
+        }
+      );
 
       const data = await response.json();
       if (data.success) {
-        setProduct(prev => prev ? { ...prev, daily_limit: dailyLimit } : null);
-        alert('Daily limit updated successfully');
+        setProduct((prev) =>
+          prev ? { ...prev, daily_limit: dailyLimit } : null
+        );
+        alert("Daily limit updated successfully");
       } else {
-        alert('Failed to update daily limit');
+        alert("Failed to update daily limit");
       }
     } catch (err) {
-      console.error('Error updating daily limit:', err);
-      alert('Error updating daily limit');
+      console.error("Error updating daily limit:", err);
+      alert("Error updating daily limit");
     }
   };
 
@@ -101,7 +105,7 @@ export default function ItemPage({ params }: ItemPageProps) {
     const formData = new FormData(e.currentTarget);
     const newSupplier = {
       farmer_id: Number(formData.get("farmer_id")),
-      product_id: Number(params.id),
+      product_id: Number(id),
       quantity: Number(formData.get("quantity")),
       price_per_unit: Number(formData.get("price_per_unit")),
       supply_date: formData.get("supply_date") as string,
@@ -110,32 +114,31 @@ export default function ItemPage({ params }: ItemPageProps) {
 
     try {
       const response = await fetch(`${API_BASE_URL}/suppliers`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newSupplier),
       });
 
       const data = await response.json();
       if (data.success) {
-        // Refresh the product data to get updated suppliers and prices
-        const updatedResponse = await fetch(`${API_BASE_URL}/products/${params.id}/suppliers`);
+        const updatedResponse = await fetch(
+          `${API_BASE_URL}/products/${id}/suppliers`
+        );
         const updatedData = await updatedResponse.json();
-        
+
         if (updatedData.success) {
           setProduct(updatedData.data);
           setSuppliers(updatedData.data.suppliers || []);
         }
-        
+
         setShowModal(false);
-        alert('Supplier added successfully');
+        alert("Supplier added successfully");
       } else {
-        alert(data.message || 'Failed to add supplier');
+        alert(data.message || "Failed to add supplier");
       }
     } catch (err) {
-      console.error('Error adding supplier:', err);
-      alert('Error adding supplier');
+      console.error("Error adding supplier:", err);
+      alert("Error adding supplier");
     }
   };
 
@@ -160,7 +163,7 @@ export default function ItemPage({ params }: ItemPageProps) {
         <div className="main">
           <Navbar />
           <div className="content">
-            <div className="error">Error: {error || 'Product not found'}</div>
+            <div className="error">Error: {error || "Product not found"}</div>
           </div>
         </div>
       </div>
@@ -173,11 +176,11 @@ export default function ItemPage({ params }: ItemPageProps) {
       <div className="main">
         <Navbar />
         <div className="content product-page">
-          <h2>P#{product.id} - {product.product_name}</h2>
+          <h2>
+            P#{product.id} - {product.product_name}
+          </h2>
 
-          {/* Wrap table + status in a row */}
           <div className="product-row">
-            {/* Suppliers Table */}
             <table className="farmer-table">
               <thead>
                 <tr>
@@ -193,7 +196,7 @@ export default function ItemPage({ params }: ItemPageProps) {
               <tbody>
                 {suppliers.length === 0 ? (
                   <tr>
-                    <td colSpan={7} style={{ textAlign: 'center', color: '#666' }}>
+                    <td colSpan={7} style={{ textAlign: "center", color: "#666" }}>
                       No suppliers found
                     </td>
                   </tr>
@@ -204,23 +207,26 @@ export default function ItemPage({ params }: ItemPageProps) {
                       <td>{supplier.farmer_name}</td>
                       <td>{supplier.farmer_contact}</td>
                       <td>{supplier.quantity}</td>
-                      <td>Rs. {supplier.price_per_unit.toFixed(2)}</td>
-                      <td>{new Date(supplier.supply_date).toLocaleDateString()}</td>
-                      <td>Rs. {(supplier.quantity * supplier.price_per_unit).toFixed(2)}</td>
+                      <td>Rs. {Number(supplier.price_per_unit).toFixed(2)}</td>
+                      <td>
+                        {new Date(supplier.supply_date).toLocaleDateString()}
+                      </td>
+                      <td>
+                        Rs.{" "}
+                        {(supplier.quantity * supplier.price_per_unit).toFixed(2)}
+                      </td>
                     </tr>
                   ))
                 )}
               </tbody>
             </table>
 
-            {/* Right side status */}
             <div className="inventory-status">
               <h3>Inventory Status</h3>
-              
               <p>
-                <strong>Current Stock:</strong> {product.current_stock} {product.unit}
+                <strong>Current Stock:</strong> {product.current_stock}{" "}
+                {product.unit}
               </p>
-              
               <p>
                 <strong>Daily Stock Limit:</strong>{" "}
                 <input
@@ -233,19 +239,17 @@ export default function ItemPage({ params }: ItemPageProps) {
                 />{" "}
                 {product.unit}
               </p>
-              
               <p>
-                <strong>Average Unit Price:</strong> Rs. {product.average_price.toFixed(2)}
+                <strong>Average Unit Price:</strong> Rs.{" "}
+                {Number(product.average_price).toFixed(2)}
               </p>
-              
               <p className="final-price">
-                <strong>Final Unit Price:</strong> Rs. {product.final_price.toFixed(2)}
+                <strong>Final Unit Price:</strong> Rs.{" "}
+                {Number(product.final_price).toFixed(2)}
               </p>
-              
               <p>
                 <strong>Total Suppliers:</strong> {suppliers.length}
               </p>
-              
               <button className="add-btn" onClick={() => setShowModal(true)}>
                 + Add Supplier
               </button>
@@ -254,56 +258,37 @@ export default function ItemPage({ params }: ItemPageProps) {
         </div>
       </div>
 
-      {/* Popup Modal */}
       {showModal && (
         <div className="modal-overlay">
           <div className="modal-content">
             <h3>Add Supplier</h3>
             <form className="product-form" onSubmit={handleSubmit}>
               <label>Farmer ID</label>
-              <input 
-                type="number" 
-                name="farmer_id" 
-                placeholder="Enter Farmer ID" 
-                required 
-                min="1"
-              />
-
+              <input type="number" name="farmer_id" required min="1" />
               <label>Quantity ({product.unit})</label>
-              <input 
-                type="number" 
-                name="quantity" 
-                placeholder="Enter Quantity" 
-                required 
+              <input
+                type="number"
+                name="quantity"
+                required
                 min="0.01"
                 step="0.01"
               />
-
               <label>Price per {product.unit} (Rs.)</label>
-              <input 
-                type="number" 
-                name="price_per_unit" 
-                placeholder="Enter Price per Unit" 
-                required 
+              <input
+                type="number"
+                name="price_per_unit"
+                required
                 min="0.01"
                 step="0.01"
               />
-
               <label>Supply Date</label>
-              <input 
-                type="date" 
-                name="supply_date" 
-                defaultValue={new Date().toISOString().split('T')[0]}
+              <input
+                type="date"
+                name="supply_date"
+                defaultValue={new Date().toISOString().split("T")[0]}
               />
-
               <label>Notes (Optional)</label>
-              <textarea 
-                name="notes" 
-                placeholder="Enter any additional notes"
-                rows={3}
-                maxLength={500}
-              />
-
+              <textarea name="notes" rows={3} maxLength={500} />
               <div className="form-actions">
                 <button type="submit">Add Supplier</button>
                 <button type="button" onClick={() => setShowModal(false)}>
@@ -314,96 +299,6 @@ export default function ItemPage({ params }: ItemPageProps) {
           </div>
         </div>
       )}
-
-      <style jsx>{`
-        .loading, .error {
-          padding: 20px;
-          text-align: center;
-          font-size: 18px;
-        }
-        
-        .error {
-          color: #dc2626;
-        }
-        
-        .modal-overlay {
-          position: fixed;
-          top: 0;
-          left: 0;
-          width: 100vw;
-          height: 100vh;
-          background: rgba(0, 0, 0, 0.6);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 1000;
-        }
-        
-        .modal-content {
-          background: #fff;
-          padding: 20px;
-          border-radius: 12px;
-          width: 400px;
-          max-height: 90vh;
-          overflow-y: auto;
-        }
-        
-        .product-form {
-          display: flex;
-          flex-direction: column;
-        }
-        
-        .product-form label {
-          margin-top: 10px;
-          font-weight: bold;
-        }
-        
-        .product-form input,
-        .product-form textarea {
-          padding: 8px;
-          margin-top: 5px;
-          border: 1px solid #ccc;
-          border-radius: 6px;
-          font-family: inherit;
-        }
-        
-        .product-form textarea {
-          resize: vertical;
-        }
-        
-        .form-actions {
-          display: flex;
-          justify-content: space-between;
-          margin-top: 15px;
-          gap: 10px;
-        }
-        
-        .form-actions button {
-          padding: 8px 14px;
-          border: none;
-          border-radius: 6px;
-          cursor: pointer;
-          flex: 1;
-        }
-        
-        .form-actions button:first-child {
-          background: #15803d;
-          color: white;
-        }
-        
-        .form-actions button:first-child:hover {
-          background: #166534;
-        }
-        
-        .form-actions button:last-child {
-          background: #6b7280;
-          color: white;
-        }
-        
-        .form-actions button:last-child:hover {
-          background: #4b5563;
-        }
-      `}</style>
     </div>
   );
 }

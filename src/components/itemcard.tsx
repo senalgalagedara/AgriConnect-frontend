@@ -1,31 +1,42 @@
 import Link from "next/link";
 
+type MaybeNumber = number | string | null | undefined;
+
 interface ItemCardProps {
   id: number;
   name: string;
-  stock?: number;
+  stock?: MaybeNumber;
   unit?: string;
-  price?: number;
-  suppliers?: number;
+  price?: MaybeNumber;
+  suppliers?: MaybeNumber;
   category?: string;
 }
 
-export default function ItemCard({ 
-  id, 
-  name, 
-  stock = 0, 
-  unit = 'kg', 
-  price = 0, 
-  suppliers = 0, 
-  category = 'General' 
+const toNum = (v: MaybeNumber, fallback = 0): number => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+};
+
+export default function ItemCard({
+  id,
+  name,
+  stock = 0,
+  unit = "kg",
+  price = 0,
+  suppliers = 0,
+  category = "General",
 }: ItemCardProps) {
-  const getStockStatus = (stock: number) => {
-    if (stock === 0) return 'out-of-stock';
-    if (stock < 10) return 'low-stock';
-    return 'in-stock';
+  const stockNum = toNum(stock);
+  const priceNum = toNum(price);
+  const suppliersNum = toNum(suppliers);
+
+  const getStockStatus = (s: number) => {
+    if (s === 0) return "out-of-stock";
+    if (s < 10) return "low-stock";
+    return "in-stock";
   };
 
-  const stockStatus = getStockStatus(stock);
+  const stockStatus = getStockStatus(stockNum);
 
   return (
     <Link href={`/inventory/${id}`} className="item-card">
@@ -33,26 +44,29 @@ export default function ItemCard({
         <h3 className="product-name">{name}</h3>
         <span className="category-badge">{category}</span>
       </div>
-      
+
       <div className="card-content">
         <div className="stock-info">
           <span className={`stock-status ${stockStatus}`}>
-            {stock} {unit}
+            {stockNum} {unit}
           </span>
           <span className="stock-label">Current Stock</span>
         </div>
-        
+
         <div className="price-info">
-          <span className="price">Rs. {price.toFixed(2)}</span>
+          <span className="price">Rs. {priceNum.toFixed(2)}</span>
           <span className="price-label">per {unit}</span>
         </div>
-        
+
         <div className="supplier-info">
-          <span className="supplier-count">{suppliers}</span>
-          <span className="supplier-label">Supplier{suppliers !== 1 ? 's' : ''}</span>
+          <span className="supplier-count">{suppliersNum}</span>
+          <span className="supplier-label">
+            Supplier{suppliersNum !== 1 ? "s" : ""}
+          </span>
         </div>
       </div>
 
+     
       <style jsx>{`
         .item-card {
           background: white;
