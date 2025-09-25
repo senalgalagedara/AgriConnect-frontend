@@ -11,7 +11,7 @@ interface Province {
   capacity: number;
   current_stock: number;
   total_products: number;
-  total_current_stock: number | string | null; // allow possible API inconsistencies
+  total_current_stock: number | string | null; 
   location: string;
   manager_name: string;
 }
@@ -64,7 +64,6 @@ export default function Home() {
     );
   }
 
-  // Utility: safely coerce any value to number
   const safeNumber = (val: unknown): number => {
     const n = Number(val);
     return isNaN(n) ? 0 : n;
