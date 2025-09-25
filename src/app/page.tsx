@@ -1,423 +1,189 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useState } from "react";
 
-export default function Home() {
-  const router = useRouter();
+export default function HomePage() {
+  const [activeSection, setActiveSection] = useState<string>("");
+
+  const navigationSections = [
+    {
+      title: "Authentication",
+      items: [
+        { name: "Login", href: "/auth/login", description: "Sign in to your account" },
+        { name: "Sign Up", href: "/auth/signup", description: "Create a new account" },
+      ],
+    },
+    {
+      title: "Shopping",
+      items: [
+        { name: "Cart", href: "/cart", description: "View your shopping cart" },
+        { name: "Checkout", href: "/checkout", description: "Complete your purchase" },
+      ],
+    },
+    {
+      title: "Admin Dashboard",
+      items: [
+        { name: "Dashboard", href: "/dashboard", description: "Main admin dashboard" },
+        { name: "Inventory", href: "/inventory", description: "Manage inventory" },
+        { name: "Users", href: "/users", description: "Manage users" },
+        { name: "Order Delivery", href: "/orderdelivery", description: "Track deliveries" },
+        { name: "Payment", href: "/payment", description: "Payment management" },
+        { name: "Feedback", href: "/feedback", description: "Customer feedback" },
+      ],
+    },
+    {
+      title: "Products",
+      items: [
+        { name: "Products", href: "/product", description: "Browse all products" },
+      ],
+    },
+  ];
 
   return (
-    <div className="home-container">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       {/* Header */}
-      <header className="header">
-        <div className="container">
-          <div className="logo">
-            <h1>🌾 AgriConnect</h1>
+      <header className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold text-gray-900">
+              Inventory Management System
+            </h1>
+            <div className="flex space-x-4">
+              <Link
+                href="/auth/login"
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Login
+              </Link>
+              <Link
+                href="/dashboard"
+                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+              >
+                Admin Dashboard
+              </Link>
+            </div>
           </div>
-          <nav className="nav">
-            <Link href="#features" className="nav-link">Features</Link>
-            <Link href="#about" className="nav-link">About</Link>
-            <Link href="/inventory" className="nav-link primary-btn">Dashboard</Link>
-          </nav>
         </div>
       </header>
 
-      {/* Hero Section */}
-      <section className="hero">
-        <div className="container">
-          <div className="hero-content">
-            <h1 className="hero-title">
-              Connect Farmers, Optimize Agriculture
-            </h1>
-            <p className="hero-subtitle">
-              Streamline inventory management, connect suppliers with buyers, 
-              and build a sustainable agricultural network across provinces.
-            </p>
-            <div className="hero-actions">
-              <Link href="/inventory" className="btn primary">
-                Get Started
-              </Link>
-              <button className="btn secondary">
-                Learn More
-              </button>
-            </div>
-          </div>
-          <div className="hero-image">
-            <div className="agriculture-graphic">
-              🚜🌱📊
-            </div>
-          </div>
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Welcome Section */}
+        <div className="text-center mb-12">
+          <h2 className="text-4xl font-bold text-gray-900 mb-4">
+            Welcome to Your Management Portal
+          </h2>
+          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+            Navigate through different sections of the application. Access admin features, 
+            manage inventory, track orders, and more.
+          </p>
         </div>
-      </section>
 
-      {/* Features Section */}
-      <section id="features" className="features">
-        <div className="container">
-          <h2 className="section-title">Key Features</h2>
-          <div className="features-grid">
-            <div className="feature-card">
-              <div className="feature-icon">📊</div>
-              <h3>Inventory Management</h3>
-              <p>Track products, stock levels, and pricing across multiple provinces with real-time updates.</p>
+        {/* Navigation Grid */}
+        <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+          {navigationSections.map((section, sectionIndex) => (
+            <div
+              key={sectionIndex}
+              className="bg-white rounded-xl shadow-md p-6 border border-gray-200 hover:shadow-lg transition-shadow"
+            >
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                {section.title}
+                <span className="ml-2 bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
+                  {section.items.length}
+                </span>
+              </h3>
+              <div className="space-y-3">
+                {section.items.map((item, itemIndex) => (
+                  <Link
+                    key={itemIndex}
+                    href={item.href}
+                    className="block p-3 rounded-lg border border-gray-100 hover:border-blue-300 hover:bg-blue-50 transition-all group"
+                    onMouseEnter={() => setActiveSection(`${sectionIndex}-${itemIndex}`)}
+                    onMouseLeave={() => setActiveSection("")}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-medium text-gray-900 group-hover:text-blue-700">
+                          {item.name}
+                        </h4>
+                        <p className="text-sm text-gray-500 mt-1">
+                          {item.description}
+                        </p>
+                      </div>
+                      <svg
+                        className={`w-5 h-5 text-gray-400 group-hover:text-blue-600 transition-transform ${
+                          activeSection === `${sectionIndex}-${itemIndex}` ? 'translate-x-1' : ''
+                        }`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 5l7 7-7 7"
+                        />
+                      </svg>
+                    </div>
+                  </Link>
+                ))}
+              </div>
             </div>
-            <div className="feature-card">
-              <div className="feature-icon">🤝</div>
-              <h3>Supplier Network</h3>
-              <p>Connect with trusted suppliers and manage relationships efficiently.</p>
-            </div>
-            <div className="feature-card">
-              <div className="feature-icon">📈</div>
-              <h3>Analytics & Reports</h3>
-              <p>Get insights into stock trends, supplier performance, and market demands.</p>
-            </div>
-            <div className="feature-card">
-              <div className="feature-icon">🌍</div>
-              <h3>Province Coverage</h3>
-              <p>Manage agricultural operations across different provinces from one central platform.</p>
-            </div>
+          ))}
+        </div>
+
+        {/* Quick Stats Section */}
+        <div className="mt-16 bg-white rounded-xl shadow-md p-8 border border-gray-200">
+          <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">
+            Quick Access
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Link
+              href="/dashboard"
+              className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-6 rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all transform hover:scale-105"
+            >
+              <div className="text-center">
+                <div className="text-3xl font-bold mb-2">📊</div>
+                <h4 className="font-semibold mb-1">Admin Dashboard</h4>
+                <p className="text-blue-100 text-sm">Manage everything from one place</p>
+              </div>
+            </Link>
+            
+            <Link
+              href="/inventory"
+              className="bg-gradient-to-r from-green-500 to-green-600 text-white p-6 rounded-lg hover:from-green-600 hover:to-green-700 transition-all transform hover:scale-105"
+            >
+              <div className="text-center">
+                <div className="text-3xl font-bold mb-2">📦</div>
+                <h4 className="font-semibold mb-1">Inventory</h4>
+                <p className="text-green-100 text-sm">Track and manage stock levels</p>
+              </div>
+            </Link>
+            
+            <Link
+              href="/orderdelivery"
+              className="bg-gradient-to-r from-purple-500 to-purple-600 text-white p-6 rounded-lg hover:from-purple-600 hover:to-purple-700 transition-all transform hover:scale-105"
+            >
+              <div className="text-center">
+                <div className="text-3xl font-bold mb-2">🚚</div>
+                <h4 className="font-semibold mb-1">Deliveries</h4>
+                <p className="text-purple-100 text-sm">Monitor order deliveries</p>
+              </div>
+            </Link>
           </div>
         </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="cta">
-        <div className="container">
-          <h2>Ready to Transform Your Agricultural Business?</h2>
-          <p>Join thousands of farmers and suppliers already using AgriConnect</p>
-          <Link href="/inventory" className="btn primary large">
-            Access Dashboard
-          </Link>
-        </div>
-      </section>
+      </main>
 
       {/* Footer */}
-      <footer className="footer">
-        <div className="container">
-          <div className="footer-content">
-            <div className="footer-section">
-              <h3>🌾 AgriConnect</h3>
-              <p>Connecting agriculture, empowering communities</p>
-            </div>
-            <div className="footer-section">
-              <h4>Platform</h4>
-              <Link href="/inventory">Dashboard</Link>
-              <Link href="#features">Features</Link>
-            </div>
-            <div className="footer-section">
-              <h4>Support</h4>
-              <Link href="#about">About</Link>
-              <Link href="#contact">Contact</Link>
-            </div>
-          </div>
-          <div className="footer-bottom">
-            <p>&copy; 2025 AgriConnect. All rights reserved.</p>
+      <footer className="bg-white border-t mt-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="text-center text-gray-500">
+            <p>© 2024 Inventory Management System. All rights reserved.</p>
           </div>
         </div>
       </footer>
-
-      <style jsx>{`
-        .home-container {
-          min-height: 100vh;
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        }
-
-        .container {
-          max-width: 1200px;
-          margin: 0 auto;
-          padding: 0 20px;
-        }
-
-        /* Header */
-        .header {
-          background: white;
-          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-          position: sticky;
-          top: 0;
-          z-index: 100;
-        }
-
-        .header .container {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 1rem 20px;
-        }
-
-        .logo h1 {
-          color: #15803d;
-          margin: 0;
-          font-size: 1.8rem;
-        }
-
-        .nav {
-          display: flex;
-          gap: 2rem;
-          align-items: center;
-        }
-
-        .nav-link {
-          text-decoration: none;
-          color: #374151;
-          font-weight: 500;
-          transition: color 0.2s;
-        }
-
-        .nav-link:hover {
-          color: #15803d;
-        }
-
-        .primary-btn {
-          background: #15803d;
-          color: white !important;
-          padding: 0.5rem 1rem;
-          border-radius: 6px;
-        }
-
-        .primary-btn:hover {
-          background: #166534;
-          color: white !important;
-        }
-
-        /* Hero */
-        .hero {
-          background: linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%);
-          padding: 4rem 0;
-        }
-
-        .hero .container {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 3rem;
-          align-items: center;
-        }
-
-        .hero-title {
-          font-size: 3rem;
-          font-weight: bold;
-          color: #1f2937;
-          margin: 0 0 1rem 0;
-          line-height: 1.2;
-        }
-
-        .hero-subtitle {
-          font-size: 1.2rem;
-          color: #6b7280;
-          margin: 0 0 2rem 0;
-          line-height: 1.6;
-        }
-
-        .hero-actions {
-          display: flex;
-          gap: 1rem;
-        }
-
-        .btn {
-          padding: 0.75rem 1.5rem;
-          border-radius: 8px;
-          text-decoration: none;
-          font-weight: 600;
-          font-size: 1rem;
-          border: none;
-          cursor: pointer;
-          transition: all 0.2s;
-          display: inline-block;
-        }
-
-        .btn.primary {
-          background: #15803d;
-          color: white;
-        }
-
-        .btn.primary:hover {
-          background: #166534;
-        }
-
-        .btn.secondary {
-          background: transparent;
-          color: #15803d;
-          border: 2px solid #15803d;
-        }
-
-        .btn.secondary:hover {
-          background: #15803d;
-          color: white;
-        }
-
-        .btn.large {
-          padding: 1rem 2rem;
-          font-size: 1.1rem;
-        }
-
-        .hero-image {
-          text-align: center;
-        }
-
-        .agriculture-graphic {
-          font-size: 8rem;
-          opacity: 0.8;
-        }
-
-        /* Features */
-        .features {
-          padding: 5rem 0;
-          background: white;
-        }
-
-        .section-title {
-          text-align: center;
-          font-size: 2.5rem;
-          color: #1f2937;
-          margin-bottom: 3rem;
-        }
-
-        .features-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-          gap: 2rem;
-        }
-
-        .feature-card {
-          background: #f9fafb;
-          padding: 2rem;
-          border-radius: 12px;
-          text-align: center;
-          border: 1px solid #e5e7eb;
-          transition: transform 0.2s;
-        }
-
-        .feature-card:hover {
-          transform: translateY(-4px);
-        }
-
-        .feature-icon {
-          font-size: 3rem;
-          margin-bottom: 1rem;
-        }
-
-        .feature-card h3 {
-          color: #1f2937;
-          margin: 0 0 1rem 0;
-          font-size: 1.25rem;
-        }
-
-        .feature-card p {
-          color: #6b7280;
-          line-height: 1.6;
-          margin: 0;
-        }
-
-        /* CTA */
-        .cta {
-          background: linear-gradient(135deg, #15803d 0%, #166534 100%);
-          color: white;
-          padding: 4rem 0;
-          text-align: center;
-        }
-
-        .cta h2 {
-          font-size: 2.5rem;
-          margin: 0 0 1rem 0;
-        }
-
-        .cta p {
-          font-size: 1.2rem;
-          margin: 0 0 2rem 0;
-          opacity: 0.9;
-        }
-
-        .cta .btn.primary {
-          background: white;
-          color: #15803d;
-        }
-
-        .cta .btn.primary:hover {
-          background: #f3f4f6;
-        }
-
-        /* Footer */
-        .footer {
-          background: #1f2937;
-          color: white;
-          padding: 3rem 0 1rem 0;
-        }
-
-        .footer-content {
-          display: grid;
-          grid-template-columns: 2fr 1fr 1fr;
-          gap: 2rem;
-          margin-bottom: 2rem;
-        }
-
-        .footer-section h3 {
-          color: #15803d;
-          margin: 0 0 1rem 0;
-        }
-
-        .footer-section h4 {
-          margin: 0 0 1rem 0;
-        }
-
-        .footer-section p {
-          color: #9ca3af;
-          margin: 0;
-        }
-
-        .footer-section a {
-          color: #9ca3af;
-          text-decoration: none;
-          display: block;
-          margin-bottom: 0.5rem;
-          transition: color 0.2s;
-        }
-
-        .footer-section a:hover {
-          color: #15803d;
-        }
-
-        .footer-bottom {
-          border-top: 1px solid #374151;
-          padding-top: 1rem;
-          text-align: center;
-          color: #9ca3af;
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-          .hero .container {
-            grid-template-columns: 1fr;
-            text-align: center;
-          }
-
-          .hero-title {
-            font-size: 2rem;
-          }
-
-          .nav {
-            gap: 1rem;
-          }
-
-          .features-grid {
-            grid-template-columns: 1fr;
-          }
-
-          .footer-content {
-            grid-template-columns: 1fr;
-            text-align: center;
-          }
-
-          .agriculture-graphic {
-            font-size: 4rem;
-          }
-
-          .section-title {
-            font-size: 2rem;
-          }
-
-          .cta h2 {
-            font-size: 2rem;
-          }
-        }
-      `}</style>
     </div>
   );
 }

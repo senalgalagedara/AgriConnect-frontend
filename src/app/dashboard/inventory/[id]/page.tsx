@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation"; 
+import { useParams } from "next/navigation"; // ✅ Fix: useParams hook
 import Sidebar from "../../../../components/sidebar";
 import Navbar from "../../../../components/navbar";
 
