@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Sidebar from "../../components/sidebar";
-import Navbar from "../../components/navbar";
-import ItemCard from "../../components/itemcard";
+import Sidebar from "../../../components/sidebar";
+import Navbar from "../../../components/navbar";
+import ItemCard from "../../../components/itemcard";
 
 interface Product {
   id: number;
