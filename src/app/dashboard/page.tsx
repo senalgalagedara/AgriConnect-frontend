@@ -34,7 +34,6 @@ export default function AdminDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'inventory'>('overview');
 
-  // Mock data for admin stats - replace with actual API calls
   const [dashboardStats] = useState<DashboardStats>({
     totalUsers: 1250,
     totalOrders: 890,
@@ -86,40 +85,7 @@ export default function AdminDashboard() {
     0
   );
 
-  const adminModules = [
-    {
-      title: "User Management",
-      href: "/users",
-      icon: "👥",
-      count: dashboardStats.totalUsers,
-      color: "blue",
-      description: "Manage user accounts and permissions"
-    },
-    {
-      title: "Order Delivery",
-      href: "/orderdelivery",
-      icon: "🚚",
-      count: dashboardStats.pendingDeliveries,
-      color: "orange",
-      description: "Track and manage deliveries"
-    },
-    {
-      title: "Payment Management",
-      href: "/payment",
-      icon: "💳",
-      count: dashboardStats.totalPayments,
-      color: "green",
-      description: "Handle payments and transactions"
-    },
-    {
-      title: "Customer Feedback",
-      href: "/feedback",
-      icon: "📝",
-      count: dashboardStats.totalFeedback,
-      color: "purple",
-      description: "View and respond to feedback"
-    },
-  ];
+
 
   if (loading) {
     return (
@@ -190,29 +156,7 @@ export default function AdminDashboard() {
                   <p className="metric-number">{dashboardStats.pendingDeliveries}</p>
                   <span className="metric-trend">Requires attention</span>
                 </div>
-              </div>
-
-              {/* Admin Modules */}
-              <div className="admin-modules">
-                <h2>Management Modules</h2>
-                <div className="modules-grid">
-                  {adminModules.map((module, index) => (
-                    <Link key={index} href={module.href} className="module-card">
-                      <div className="module-header">
-                        <span className="module-icon">{module.icon}</span>
-                        <span className={`module-count ${module.color}`}>
-                          {module.count}
-                        </span>
-                      </div>
-                      <h3>{module.title}</h3>
-                      <p>{module.description}</p>
-                      <div className="module-action">
-                        Manage →
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </div>
+              </div>             
             </div>
           )}
 
