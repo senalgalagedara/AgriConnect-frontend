@@ -8,6 +8,15 @@ export default function Sidebar() {
         <Link href="/" className="nav-link">
           Inventory
         </Link>
+        <Link href="/" className="nav-link">
+          Inventory
+        </Link>
+        <Link href="/" className="nav-link">
+          Inventory
+        </Link>
+        <Link href="/" className="nav-link">
+          Inventory
+        </Link>
       </nav>
     </div>
   );
