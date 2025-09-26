@@ -3,22 +3,28 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-export type CartItem = {
-  id: string;
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:5000/api';
+// IMPORTANT: use your real logged-in user's id (UUID if your DB uses uuid)
+const USER_ID = '02a6e5c3-67f3-463c-aebd-3c1a38d7466b';
+
+type CartItem = {
+  id: number;          // cart_items.id
+  product_id: number;  // products.id
   name: string;
-  price: number; // per item
+  price: number;
   qty: number;
-  image?: string;
 };
 
-export type ContactDetails = {
+type Totals = { subtotal: number; tax: number; shippingFee: number; total: number };
+
+type ContactDetails = {
   firstName: string;
   lastName: string;
   email: string;
   phone: string;
 };
 
-export type ShippingDetails = {
+type ShippingDetails = {
   house: string;
   address: string;
   city: string;
@@ -28,197 +34,249 @@ export type ShippingDetails = {
   sameAsBilling: boolean;
 };
 
-export type CheckoutData = {
-  cart: CartItem[];
+type CheckoutData = {
+  cart: { id: string; name: string; price: number; qty: number }[]; // from previous step (if present)
   contact: ContactDetails;
   shipping: ShippingDetails;
-  totals: {
-    subtotal: number;
-    tax: number;
-    shippingFee: number;
-    total: number;
-  };
+  totals: Totals;
 };
 
-export type Transaction = {
-  id: string; // order id
-  customerName: string;
-  email: string;
-  total: number;
-  paymentMethod: 'COD' | 'CARD';
-  createdAt: string; // ISO
-  items: CartItem[];
-};
 export default function PaymentPage() {
   const router = useRouter();
-  const [data, setData] = useState<CheckoutData | null>(null);
+
+  // Summary pulled from backend
+  const [items, setItems] = useState<CartItem[]>([]);
+  const [totals, setTotals] = useState<Totals>({ subtotal: 0, tax: 0, shippingFee: 0, total: 0 });
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
+
+  // Data from shipping step (kept so we can send contact+shipping to backend at checkout)
+  const [checkout, setCheckout] = useState<CheckoutData | null>(null);
+
   const [method, setMethod] = useState<'COD' | 'CARD'>('COD');
   const [card, setCard] = useState({ number: '', mmYY: '', cvv: '' });
+  const disablePay = useMemo(() => (method === 'COD' ? false : !(card.number && card.mmYY && card.cvv)), [method, card]);
 
+  // Load backend cart + (optional) shipping step payload
   useEffect(() => {
-    const chk = localStorage.getItem('checkout');
-    if (chk) setData(JSON.parse(chk));
+    (async () => {
+      try {
+        setLoading(true);
+        const r = await fetch(`${API_BASE}/cart/${USER_ID}`, { cache: 'no-store' });
+        const data = await r.json();
+        setItems(Array.isArray(data?.items) ? data.items : []);
+        setTotals(data?.totals ?? { subtotal: 0, tax: 0, shippingFee: 0, total: 0 });
+      } catch (e: any) {
+        setErr(e?.message || 'Failed to load cart');
+      } finally {
+        setLoading(false);
+      }
+    })();
+
+    // If your shipping page saved contact+shipping, read it:
+    try {
+      const raw = localStorage.getItem('checkout');
+      if (raw) setCheckout(JSON.parse(raw));
+    } catch {
+      /* ignore */
+    }
   }, []);
 
-  const disablePay = useMemo(() => {
-    if (method === 'COD') return false;
-    return !(card.number && card.mmYY && card.cvv);
-  }, [method, card]);
+  const onPay = async () => {
+    try {
+      if (!checkout?.contact || !checkout?.shipping) {
+        alert('Missing contact/shipping details from the previous step.');
+        return;
+      }
 
-  const onPay = () => {
-    if (!data) return;
+      // Create order in DB from the active cart + provided details
+      const res = await fetch(`${API_BASE}/orders/checkout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: USER_ID,
+          contact: checkout.contact,
+          shipping: checkout.shipping,
+        }),
+      });
 
-    // Create a transaction + "invoice"
-    const orderId = Math.floor(100000000 + Math.random() * 900000000).toString();
-    const tx: Transaction = {
-      id: orderId,
-      customerName: `${data.contact.firstName} ${data.contact.lastName}`.trim(),
-      email: data.contact.email,
-      total: data.totals.total,
-      paymentMethod: method,
-      createdAt: new Date().toISOString(),
-      items: data.cart,
-    };
+      if (!res.ok) {
+        const text = await res.text();
+        alert(`Checkout failed: ${text}`);
+        return;
+      }
 
-    // save for invoice + manager
-    const all = JSON.parse(localStorage.getItem('transactions') || '[]') as Transaction[];
-    all.unshift(tx);
-    localStorage.setItem('transactions', JSON.stringify(all));
-    localStorage.setItem('lastInvoice', JSON.stringify(tx));
+      const order = await res.json(); // { order, items }
+      // If you later add a payment capture endpoint, call it here
+      // e.g. POST /api/orders/:id/pay with { method, card_last4 }
 
-    router.push('/invoice');
+      // Redirect to an order page (or your invoice page)
+      router.push(`/order/${order.order.id}`);
+    } catch (e: any) {
+      alert(`Checkout failed: ${e?.message || 'Unknown error'}`);
+    }
   };
 
-  if (!data) {
-    return <div className="p-8 text-gray-500">No checkout data. Go back to the cart.</div>;
-  }
-
-  const { cart, totals } = data;
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="mx-auto max-w-6xl px-4 py-10 grid grid-cols-1 lg:grid-cols-2 gap-10">
-        {/* Left: Summary (readonly) */}
-        <div>
-          <div className="flex items-center gap-3 text-sm mb-6">
-            <span className="text-gray-500">Shipping</span>
-            <span className="text-gray-400">—</span>
-            <span className="text-green-700 font-medium">Payment</span>
-          </div>
+    <div className="page">
+      {/* LEFT: Summary */}
+      <div>
+        <div className="stepper">
+          <span className="step">Shipping</span>
+          <span className="sep">—</span>
+          <span className="step-active">Payment</span>
+        </div>
 
-          <h2 className="text-lg font-medium mb-4">Order Summary</h2>
-          <div className="space-y-4">
-            {cart.map((item) => (
-              <div key={item.id} className="flex items-center justify-between rounded-xl bg-white p-4 shadow-sm">
-                <div className="flex items-center gap-3">
-                  <div className="h-12 w-12 rounded-lg bg-green-50 flex items-center justify-center">🥬</div>
+        <h2 className="title">Order Summary</h2>
+
+        {loading && <div className="card">Loading cart…</div>}
+        {err && <div className="card error">Error: {err}</div>}
+
+        {!loading && !err && (
+          <>
+            {items.length === 0 && <div className="card">Your cart is empty.</div>}
+
+            {items.map((item) => (
+              <div key={item.id} className="order-item">
+                <div className="order-left">
+                  <div className="thumb" aria-hidden>🥬</div>
                   <div>
-                    <div className="font-medium">{item.name}</div>
-                    <div className="text-gray-500 text-sm">Qty: {item.qty}</div>
+                    <div className="name">{item.name}</div>
+                    <div className="muted">Qty: {item.qty}</div>
                   </div>
                 </div>
-                <div className="font-medium">${(item.price * item.qty).toFixed(2)}</div>
+                <div className="price">${(Number(item.price) * item.qty).toFixed(2)}</div>
               </div>
             ))}
-          </div>
 
-          <div className="mt-6 rounded-xl bg-white p-4 shadow-sm divide-y">
-            <Row label="Subtotal" value={`$${totals.subtotal.toFixed(2)}`} />
-            <Row label={`Sales tax (6.5%)`} value={`$${totals.tax.toFixed(2)}`} />
-            <Row label="Shipping Fee" value={totals.shippingFee ? `$${totals.shippingFee.toFixed(2)}` : 'FREE'} />
-            <div className="flex items-center justify-between pt-3">
-              <span className="font-medium">Total due</span>
-              <span className="font-semibold text-green-700">${totals.total.toFixed(2)}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Right: Payment methods */}
-        <div className="space-y-6">
-          <section className="rounded-xl bg-white p-6 shadow-sm">
-            <h3 className="font-medium mb-4">Payment Methods</h3>
-
-            <label className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer mb-3">
-              <input
-                type="radio"
-                name="pay"
-                checked={method === 'COD'}
-                onChange={() => setMethod('COD')}
-                className="mt-1"
-              />
-              <div>
-                <div className="font-medium">Pay on Delivery</div>
-                <div className="text-sm text-gray-500">Pay with cash on delivery</div>
+            <div className="card">
+              <div className="row"><span className="muted">Subtotal</span><span>${totals.subtotal.toFixed(2)}</span></div>
+              <div className="row"><span className="muted">Sales tax (6.5%)</span><span>${totals.tax.toFixed(2)}</span></div>
+              <div className="row"><span className="muted">Shipping Fee</span><span>{totals.shippingFee ? `$${totals.shippingFee.toFixed(2)}` : 'FREE'}</span></div>
+              <div className="total">
+                <span className="total-label">Total due</span>
+                <span className="total-value">${totals.total.toFixed(2)}</span>
               </div>
-            </label>
+            </div>
+          </>
+        )}
+      </div>
 
-            <label className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer">
-              <input
-                type="radio"
-                name="pay"
-                checked={method === 'CARD'}
-                onChange={() => setMethod('CARD')}
-                className="mt-1"
-              />
-              <div className="w-full">
-                <div className="font-medium">Credit/Debit Cards</div>
-                <div className="text-sm text-gray-500 mb-3">Pay with your Credit / Debit Card</div>
+      {/* RIGHT: Payment */}
+      <div>
+        <div className="card">
+          <h3 className="subtitle">Payment Methods</h3>
 
-                <div className="grid grid-cols-1 gap-3">
+          <label className="radio">
+            <input type="radio" name="pay" checked={method === 'COD'} onChange={() => setMethod('COD')} />
+            <div>
+              <div className="radio-title">Pay on Delivery</div>
+              <div className="muted small">Pay with cash on delivery</div>
+            </div>
+          </label>
+
+          <label className="radio">
+            <input type="radio" name="pay" checked={method === 'CARD'} onChange={() => setMethod('CARD')} />
+            <div className="wfull">
+              <div className="radio-title">Credit/Debit Cards</div>
+              <div className="muted small mb">Pay with your Credit / Debit Card</div>
+
+              <div className="grid">
+                <input
+                  disabled={method !== 'CARD'}
+                  placeholder="Card number"
+                  value={card.number}
+                  onChange={(e) => setCard({ ...card, number: e.target.value })}
+                  className="input"
+                />
+                <div className="grid2">
                   <input
                     disabled={method !== 'CARD'}
-                    placeholder="Card number"
-                    value={card.number}
-                    onChange={(e) => setCard({ ...card, number: e.target.value })}
-                    className="w-full rounded-lg border border-gray-200 px-3 py-2 outline-none disabled:bg-gray-50"
+                    placeholder="MM / YY"
+                    value={card.mmYY}
+                    onChange={(e) => setCard({ ...card, mmYY: e.target.value })}
+                    className="input"
                   />
-                  <div className="grid grid-cols-2 gap-3">
-                    <input
-                      disabled={method !== 'CARD'}
-                      placeholder="MM / YY"
-                      value={card.mmYY}
-                      onChange={(e) => setCard({ ...card, mmYY: e.target.value })}
-                      className="w-full rounded-lg border border-gray-200 px-3 py-2 outline-none disabled:bg-gray-50"
-                    />
-                    <input
-                      disabled={method !== 'CARD'}
-                      placeholder="CVV"
-                      value={card.cvv}
-                      onChange={(e) => setCard({ ...card, cvv: e.target.value })}
-                      className="w-full rounded-lg border border-gray-200 px-3 py-2 outline-none disabled:bg-gray-50"
-                    />
-                  </div>
+                  <input
+                    disabled={method !== 'CARD'}
+                    placeholder="CVV"
+                    value={card.cvv}
+                    onChange={(e) => setCard({ ...card, cvv: e.target.value })}
+                    className="input"
+                  />
                 </div>
               </div>
-            </label>
-
-            <div className="mt-8 flex items-center justify-between">
-              <button
-                onClick={() => history.back()}
-                className="rounded-lg border px-6 py-2 text-gray-700 hover:bg-gray-50"
-              >
-                Back
-              </button>
-              <button
-                disabled={disablePay}
-                onClick={onPay}
-                className="rounded-lg bg-green-700 px-8 py-2 text-white hover:bg-green-800 disabled:opacity-50"
-              >
-                Pay
-              </button>
             </div>
-          </section>
+          </label>
+
+          <div className="actions">
+            <button className="btn ghost" onClick={() => history.back()}>Back</button>
+            <button className="btn primary" disabled={disablePay} onClick={onPay}>Pay</button>
+          </div>
         </div>
       </div>
-    </div>
-  );
-}
 
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between py-2">
-      <span className="text-gray-600">{label}</span>
-      <span className="text-gray-700">{value}</span>
+      {/* ---------------- CUSTOM CSS (no Tailwind) ---------------- */}
+      <style jsx>{`
+        :global(html), :global(body) { margin: 0; padding: 0; background: #f9fafb; }
+        .page {
+          min-height: 100vh;
+          max-width: 1200px;
+          margin: 0 auto;
+          padding: 2rem 1rem;
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 2.5rem;
+          font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+          color: #111827;
+        }
+        @media (max-width: 1024px) { .page { grid-template-columns: 1fr; } }
+
+        .stepper { display: flex; gap: 8px; align-items: center; margin-bottom: 1.25rem; font-size: 0.95rem; }
+        .step { color: #6b7280; }
+        .step-active { color: #047857; font-weight: 600; }
+        .sep { color: #9ca3af; }
+
+        .title { font-size: 1.125rem; font-weight: 500; margin: 0 0 1rem; }
+        .subtitle { margin: 0 0 0.75rem; font-weight: 500; }
+
+        .card { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .error { border: 1px solid #fecaca; background: #fff1f2; }
+
+        .order-item { background: #fff; border-radius: 12px; padding: 14px 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.06); margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+        .order-left { display: flex; gap: 12px; align-items: center; }
+        .thumb { width: 48px; height: 48px; border-radius: 8px; background: #ecfdf5; display: flex; align-items: center; justify-content: center; }
+        .name { font-weight: 500; }
+        .muted { color: #6b7280; }
+        .small { font-size: 0.875rem; }
+        .mb { margin-bottom: 10px; }
+        .price { font-weight: 500; }
+
+        .row { display: flex; justify-content: space-between; padding: 6px 0; }
+        .total { display: flex; justify-content: space-between; align-items: center; padding-top: 10px; }
+        .total-label { font-weight: 500; }
+        .total-value { font-weight: 600; color: #047857; }
+
+        .radio { display: flex; gap: 12px; align-items: flex-start; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px; margin-bottom: 12px; cursor: pointer; }
+        .radio input { margin-top: 4px; }
+        .radio-title { font-weight: 500; }
+        .wfull { width: 100%; }
+
+        .grid { display: grid; gap: 10px; }
+        .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+        .input { width: 100%; padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 10px; outline: none; }
+        .input:disabled { background: #f3f4f6; }
+        .input:focus { border-color: #047857; }
+
+        .actions { display: flex; justify-content: space-between; align-items: center; margin-top: 1.25rem; }
+        .btn { border: 1px solid transparent; border-radius: 10px; padding: 10px 20px; cursor: pointer; }
+        .btn.primary { background: #047857; color: #fff; }
+        .btn.primary:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn.primary:hover:not(:disabled) { background: #065f46; }
+        .btn.ghost { background: #fff; border-color: #e5e7eb; color: #374151; }
+        .btn.ghost:hover { background: #f3f4f6; }
+      `}</style>
     </div>
   );
 }

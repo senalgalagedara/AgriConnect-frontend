@@ -1,262 +1,249 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-export type CartItem = {
-  id: string;
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:5000/api';
+const USER_ID = "02a6e5c3-67f3-463c-aebd-3c1a38d7466b"; // real uuid
+
+
+type CartItem = {
+  id: number;          // cart_items.id
+  product_id: number;  // products.id
   name: string;
-  price: number; // per item
+  price: number;
   qty: number;
-  image?: string;
 };
 
-export type ContactDetails = {
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-};
-
-export type ShippingDetails = {
-  house: string;
-  address: string;
-  city: string;
-  state: string;
-  postalCode: string;
-  landmark?: string;
-  sameAsBilling: boolean;
-};
-
-export type CheckoutData = {
-  cart: CartItem[];
-  contact: ContactDetails;
-  shipping: ShippingDetails;
-  totals: {
-    subtotal: number;
-    tax: number;
-    shippingFee: number;
-    total: number;
-  };
-};
-
-const TAX_RATE = 0.065;
-const SHIPPING_FEE = 0; // FREE
-
-const demoCart: CartItem[] = [
-  { id: 'corn', name: 'Corn', price: 65, qty: 1, image: '/corn.png' },
-  { id: 'red-chili', name: 'Red chili', price: 95, qty: 2, image: '/redchili.png' },
-];
+type Totals = { subtotal: number; tax: number; shippingFee: number; total: number };
+type Contact = { firstName: string; lastName: string; email: string; phone: string };
+type Shipping = { house: string; address: string; city: string; state: string; postalCode: string; landmark?: string; sameAsBilling: boolean };
 
 export default function CartPage() {
   const router = useRouter();
 
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [contact, setContact] = useState<ContactDetails>({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '+91 ',
-  });
-  const [shipping, setShipping] = useState<ShippingDetails>({
-    house: '',
-    address: '',
-    city: '',
-    state: '',
-    postalCode: '',
-    landmark: '',
-    sameAsBilling: true,
+  const [cart, setCart] = useState<CartItem[]>([]); // always an array
+  const [totals, setTotals] = useState<Totals>({ subtotal: 0, tax: 0, shippingFee: 0, total: 0 });
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
+
+  const [contact, setContact] = useState<Contact>({ firstName: '', lastName: '', email: '', phone: '' });
+  const [shipping, setShipping] = useState<Shipping>({
+    house: '', address: '', city: '', state: '', postalCode: '', landmark: '', sameAsBilling: true,
   });
 
+  // fetch cart on load
   useEffect(() => {
-    const stored = localStorage.getItem('cart');
-    setCart(stored ? JSON.parse(stored) : demoCart);
-    const savedContact = localStorage.getItem('contact');
-    const savedShipping = localStorage.getItem('shipping');
-    if (savedContact) setContact(JSON.parse(savedContact));
-    if (savedShipping) setShipping(JSON.parse(savedShipping));
+    (async () => {
+      try {
+        setLoading(true);
+        setErr(null);
+        const r = await fetch(`${API_BASE}/cart/${USER_ID}`, { cache: 'no-store' });
+        const data = await r.json();
+        // 👇 defensive guards
+        setCart(Array.isArray(data?.items) ? data.items : []);
+        setTotals(typeof data?.totals === 'object' && data.totals
+          ? data.totals
+          : { subtotal: 0, tax: 0, shippingFee: 0, total: 0 });
+      } catch (e: any) {
+        setErr(e?.message || 'Failed to load cart');
+        setCart([]); // keep it an array so .map is safe
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem('cart', JSON.stringify(cart));
-  }, [cart]);
-
-  const totals = useMemo(() => {
-    const subtotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
-    const tax = +(subtotal * TAX_RATE).toFixed(2);
-    const total = +(subtotal + tax + SHIPPING_FEE).toFixed(2);
-    return { subtotal, tax, shippingFee: SHIPPING_FEE, total };
-  }, [cart]);
-
-  const updateQty = (id: string, delta: number) => {
-    setCart((prev) =>
-      prev
-        .map((it) => (it.id === id ? { ...it, qty: Math.max(1, it.qty + delta) } : it))
-        .filter((it) => it.qty > 0)
-    );
+  const updateQty = async (itemId: number, nextQty: number) => {
+    try {
+      const r = await fetch(`${API_BASE}/cart/${USER_ID}/items/${itemId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ qty: nextQty }),
+      });
+      const data = await r.json();
+      setCart(Array.isArray(data?.items) ? data.items : []);
+      setTotals(data?.totals ?? { subtotal: 0, tax: 0, shippingFee: 0, total: 0 });
+    } catch {
+      // keep UI stable if the request fails
+    }
   };
 
-  const removeItem = (id: string) => setCart((p) => p.filter((i) => i.id !== id));
+  const removeItem = async (itemId: number) => {
+    try {
+      const r = await fetch(`${API_BASE}/cart/${USER_ID}/items/${itemId}`, { method: 'DELETE' });
+      const data = await r.json();
+      setCart(Array.isArray(data?.items) ? data.items : []);
+      setTotals(data?.totals ?? { subtotal: 0, tax: 0, shippingFee: 0, total: 0 });
+    } catch {}
+  };
 
-  const onContinue = () => {
-    // Save details and calculated totals, then go to payment
-    localStorage.setItem('contact', JSON.stringify(contact));
-    localStorage.setItem('shipping', JSON.stringify(shipping));
-    const payload: CheckoutData = { cart, contact, shipping, totals };
-    localStorage.setItem('checkout', JSON.stringify(payload));
-    router.push('/checkout');
+  const onCheckout = async () => {
+    const res = await fetch(`${API_BASE}/orders/checkout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: USER_ID, contact, shipping }),
+    });
+    if (!res.ok) {
+      const msg = await res.text();
+      alert(`Checkout failed: ${msg}`);
+      return;
+    }
+    const order = await res.json();
+    router.push(`/order/${order.order.id}`);
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="mx-auto max-w-6xl px-4 py-10 grid grid-cols-1 lg:grid-cols-2 gap-10">
-        {/* Order Summary */}
-        <div>
-          <h1 className="text-2xl font-semibold text-green-700 mb-6">AgriConnect</h1>
+    <div className="page">
+      <div>
+        <h1 className="brand">AgriConnect</h1>
+        <h2 className="section-title">Order Summary</h2>
 
-          <h2 className="text-lg font-medium mb-4">Order Summary</h2>
-          <div className="space-y-4">
+        {loading && <div className="card">Loading cart…</div>}
+        {err && <div className="card error">Error: {err}</div>}
+
+        {!loading && !err && (
+          <>
+            {cart.length === 0 && <div className="card">Your cart is empty.</div>}
+
             {cart.map((item) => (
-              <div key={item.id} className="flex items-center justify-between rounded-xl bg-white p-4 shadow-sm">
-                <div className="flex items-center gap-3">
-                  {/* placeholder images; keep your current style if already present */}
-                  <div className="h-12 w-12 rounded-lg bg-green-50 flex items-center justify-center text-sm">
-                    🥬
-                  </div>
+              <div key={item.id} className="order-item">
+                <div className="order-item-left">
+                  <div className="order-item-img" aria-hidden>🥬</div>
                   <div>
-                    <div className="font-medium">{item.name}</div>
-                    <div className="text-gray-500 text-sm">${item.price.toFixed(2)}</div>
+                    <div className="item-name">{item.name}</div>
+                    <div className="item-price">${Number(item.price).toFixed(2)}</div>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2">
-                    <button
-                      aria-label="decrease"
-                      onClick={() => updateQty(item.id, -1)}
-                      className="h-8 w-8 rounded-lg border hover:bg-gray-100"
-                    >
-                      –
-                    </button>
-                    <span className="min-w-6 text-center">{item.qty}</span>
-                    <button
-                      aria-label="increase"
-                      onClick={() => updateQty(item.id, +1)}
-                      className="h-8 w-8 rounded-lg border hover:bg-gray-100"
-                    >
-                      +
-                    </button>
-                  </div>
+                <div className="order-actions">
                   <button
-                    aria-label="remove"
-                    onClick={() => removeItem(item.id)}
-                    className="text-gray-400 hover:text-red-600"
-                    title="Remove"
-                  >
-                    🗑️
-                  </button>
+                    className="qty-btn"
+                    onClick={() => updateQty(item.id, Math.max(0, item.qty - 1))}
+                    aria-label="decrease"
+                  >−</button>
+                  <span className="qty-val">{item.qty}</span>
+                  <button
+                    className="qty-btn"
+                    onClick={() => updateQty(item.id, item.qty + 1)}
+                    aria-label="increase"
+                  >+</button>
+                  <button className="remove" onClick={() => removeItem(item.id)} title="Remove">🗑️</button>
                 </div>
               </div>
             ))}
-          </div>
 
-          {/* Totals */}
-          <div className="mt-6 rounded-xl bg-white p-4 shadow-sm divide-y">
-            <Row label="Subtotal" value={`$${totals.subtotal.toFixed(2)}`} />
-            <Row label={`Sales tax (${(TAX_RATE * 100).toFixed(1)}%)`} value={`$${totals.tax.toFixed(2)}`} />
-            <div className="flex items-center justify-between pt-3">
-              <span className="font-medium">Total due</span>
-              <span className="font-semibold text-green-700">${totals.total.toFixed(2)}</span>
+            <div className="card">
+              <div className="row"><span className="label">Subtotal</span><span>${totals.subtotal.toFixed(2)}</span></div>
+              <div className="row"><span className="label">Sales tax</span><span>${totals.tax.toFixed(2)}</span></div>
+              <div className="total"><span className="total-label">Total due</span><span className="total-value">${totals.total.toFixed(2)}</span></div>
             </div>
-          </div>
-        </div>
-
-        {/* Forms */}
-        <div className="space-y-8">
-          {/* Step indicator */}
-          <div className="flex items-center gap-3 text-sm">
-            <span className="text-green-700 font-medium">Shipping</span>
-            <span className="text-gray-400">—</span>
-            <span className="text-gray-400">Payment</span>
-          </div>
-
-          {/* Contact Details */}
-          <section className="rounded-xl bg-white p-6 shadow-sm">
-            <h3 className="font-medium mb-4">Contact Details</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input label="First Name" value={contact.firstName} onChange={(v) => setContact({ ...contact, firstName: v })} />
-              <Input label="Last Name" value={contact.lastName} onChange={(v) => setContact({ ...contact, lastName: v })} />
-              <Input label="Email" type="email" value={contact.email} onChange={(v) => setContact({ ...contact, email: v })} className="md:col-span-2" />
-              <Input label="Phone Number" value={contact.phone} onChange={(v) => setContact({ ...contact, phone: v })} className="md:col-span-2" />
-            </div>
-          </section>
-
-          {/* Shipping Details */}
-          <section className="rounded-xl bg-white p-6 shadow-sm">
-            <h3 className="font-medium mb-4">Shipping Details</h3>
-            <div className="grid grid-cols-1 gap-4">
-              <Input label="Flat/House no." value={shipping.house} onChange={(v) => setShipping({ ...shipping, house: v })} />
-              <Input label="Address" value={shipping.address} onChange={(v) => setShipping({ ...shipping, address: v })} />
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input label="City" value={shipping.city} onChange={(v) => setShipping({ ...shipping, city: v })} />
-                <Input label="State" value={shipping.state} onChange={(v) => setShipping({ ...shipping, state: v })} />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input label="Postal Code" value={shipping.postalCode} onChange={(v) => setShipping({ ...shipping, postalCode: v })} />
-                <Input label="Famous Landmark" value={shipping.landmark ?? ''} onChange={(v) => setShipping({ ...shipping, landmark: v })} />
-              </div>
-
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 rounded border-gray-300"
-                  checked={shipping.sameAsBilling}
-                  onChange={(e) => setShipping({ ...shipping, sameAsBilling: e.target.checked })}
-                />
-                My shipping and Billing address are the same
-              </label>
-            </div>
-
-            <div className="pt-6 flex justify-end">
-              <button
-                onClick={onContinue}
-                className="rounded-lg bg-green-700 px-6 py-2 text-white hover:bg-green-800"
-              >
-                Continue
-              </button>
-            </div>
-          </section>
-        </div>
+          </>
+        )}
       </div>
+
+      <div className="right">
+        <div className="stepper">
+          <span className="step-active">Shipping</span>
+          <span className="sep">—</span>
+          <span className="step">Payment</span>
+        </div>
+
+        <section className="card">
+          <h3 className="sub-title">Contact Details</h3>
+          <div className="grid two-col">
+            <Field label="First Name" value={contact.firstName} onChange={(v) => setContact({ ...contact, firstName: v })} />
+            <Field label="Last Name" value={contact.lastName} onChange={(v) => setContact({ ...contact, lastName: v })} />
+          </div>
+          <div className="grid">
+            <Field label="Email" type="email" value={contact.email} onChange={(v) => setContact({ ...contact, email: v })} />
+            <Field label="Phone" value={contact.phone} onChange={(v) => setContact({ ...contact, phone: v })} />
+          </div>
+        </section>
+
+        <section className="card">
+          <h3 className="sub-title">Shipping Details</h3>
+          <div className="grid">
+            <Field label="Flat/House no." value={shipping.house} onChange={(v) => setShipping({ ...shipping, house: v })} />
+            <Field label="Address" value={shipping.address} onChange={(v) => setShipping({ ...shipping, address: v })} />
+            <div className="grid two-col">
+              <Field label="City" value={shipping.city} onChange={(v) => setShipping({ ...shipping, city: v })} />
+              <Field label="State" value={shipping.state} onChange={(v) => setShipping({ ...shipping, state: v })} />
+            </div>
+            <div className="grid two-col">
+              <Field label="Postal Code" value={shipping.postalCode} onChange={(v) => setShipping({ ...shipping, postalCode: v })} />
+              <Field label="Famous Landmark" value={shipping.landmark ?? ''} onChange={(v) => setShipping({ ...shipping, landmark: v })} />
+            </div>
+            <label className="checkbox">
+              <input
+                type="checkbox"
+                checked={shipping.sameAsBilling}
+                onChange={(e) => setShipping({ ...shipping, sameAsBilling: e.target.checked })}
+              />
+              <span>My shipping and Billing address are the same</span>
+            </label>
+          </div>
+
+          <div className="actions">
+            <button className="btn" onClick={onCheckout}>Continue</button>
+          </div>
+        </section>
+      </div>
+
+      {/* CUSTOM CSS */}
+      <style jsx>{`
+        :global(html), :global(body) { margin: 0; padding: 0; }
+        .page {
+          min-height: 100vh; background: #f9fafb;
+          display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;
+          max-width: 1200px; margin: 0 auto; padding: 2rem 1rem;
+          font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+          color: #111827;
+        }
+        @media (max-width: 1024px) { .page { grid-template-columns: 1fr; } }
+        .brand { font-size: 1.5rem; font-weight: 600; color: #047857; margin: 0 0 1rem; }
+        .section-title { font-size: 1.125rem; font-weight: 500; margin: 0 0 0.75rem; }
+        .card { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .error { border: 1px solid #fecaca; background: #fff1f2; }
+        .order-item { display: flex; justify-content: space-between; align-items: center; background: #fff; border-radius: 12px; padding: 12px 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.06); margin-bottom: 10px; }
+        .order-item-left { display: flex; gap: 12px; align-items: center; }
+        .order-item-img { width: 48px; height: 48px; border-radius: 8px; background: #ecfdf5; display: flex; align-items: center; justify-content: center; }
+        .item-name { font-weight: 500; }
+        .item-price { color: #6b7280; font-size: 0.9rem; }
+        .order-actions { display: flex; align-items: center; gap: 10px; }
+        .qty-btn { width: 32px; height: 32px; border: 1px solid #d1d5db; border-radius: 8px; background: #fff; cursor: pointer; }
+        .qty-val { min-width: 24px; text-align: center; }
+        .remove { border: none; background: none; color: #9ca3af; cursor: pointer; }
+        .remove:hover { color: #dc2626; }
+        .row { display: flex; justify-content: space-between; padding: 6px 0; }
+        .label { color: #4b5563; }
+        .total { display: flex; justify-content: space-between; align-items: center; padding-top: 10px; }
+        .total-label { font-weight: 500; }
+        .total-value { font-weight: 600; color: #047857; }
+        .right { display: flex; flex-direction: column; gap: 24px; }
+        .stepper { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; }
+        .step-active { color: #047857; font-weight: 600; } .step, .sep { color: #9ca3af; }
+        .sub-title { margin: 0 0 10px; font-weight: 500; }
+        .grid { display: grid; gap: 12px; }
+        .two-col { grid-template-columns: 1fr 1fr; } @media (max-width: 640px) { .two-col { grid-template-columns: 1fr; } }
+        .field { font-size: 0.9rem; color: #4b5563; }
+        .field-label { margin-bottom: 4px; display: block; }
+        .input { width: 100%; padding: 8px 12px; border: 1px solid #e5e7eb; border-radius: 8px; outline: none; }
+        .input:focus { border-color: #047857; }
+        .checkbox { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; color: #374151; }
+        .actions { display: flex; justify-content: flex-end; padding-top: 12px; }
+        .btn { background: #047857; color: #fff; border: none; border-radius: 10px; padding: 10px 20px; cursor: pointer; }
+        .btn:hover { background: #065f46; }
+      `}</style>
     </div>
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Field(props: { label: string; value: string; onChange: (v: string) => void; type?: string }) {
+  const { label, value, onChange, type = 'text' } = props;
   return (
-    <div className="flex items-center justify-between py-2">
-      <span className="text-gray-600">{label}</span>
-      <span className="text-gray-700">{value}</span>
-    </div>
-  );
-}
-
-function Input(props: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  type?: string;
-  className?: string;
-}) {
-  const { label, value, onChange, type = 'text', className = '' } = props;
-  return (
-    <label className={`text-sm ${className}`}>
-      <div className="mb-1 text-gray-600">{label}</div>
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-lg border border-gray-200 px-3 py-2 outline-none focus:border-green-600"
-      />
+    <label className="field">
+      <span className="field-label">{label}</span>
+      <input className="input" type={type} value={value} onChange={(e) => onChange(e.target.value)} />
     </label>
   );
 }

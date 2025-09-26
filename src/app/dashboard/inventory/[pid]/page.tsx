@@ -188,7 +188,7 @@ export default function Inventory() {
   {products.map((product) => (
     <Link
       key={product.id}
-      href={`/dashboard/inventory/${pid}/${product.id}`}
+      href={`/dashboard/inventory/${pid}/ ${product.id}`}
       className="no-underline"
     >
       <ItemCard
