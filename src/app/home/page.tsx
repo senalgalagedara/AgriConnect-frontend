@@ -2,22 +2,31 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ShoppingCart, Search, Filter, Star, Truck, Shield, Leaf } from "lucide-react";
+import { ShoppingCart, Search, Star, Truck, Shield, Leaf, Plus, Minus } from "lucide-react";
+import Navbar from "../../components/NavbarHome";
 
 interface Product {
   id: number;
   product_name: string;
-  current_stock: number;
   final_price: number;
   unit: string;
   category_name: string;
   supplier_count: number;
-  average_rating?: number;
-  image_url?: string;
+  total_supplied: number;
+  status: string;
+}
+
+interface CartItem {
+  id: number;
+  name: string;
+  price: number;
+  qty: number;
+  unit: string;
 }
 
 const API_BASE_URL = "http://localhost:5000/api";
 const WESTERN_PROVINCE_ID = 1;
+const USER_ID = 1; // Demo user ID
 
 export default function HomePage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -25,7 +34,8 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
-  const [cartItems, setCartItems] = useState(0);
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [addingToCart, setAddingToCart] = useState<number | null>(null);
 
   const categories = [
     { id: "all", name: "All Products", icon: "🏪" },
@@ -37,20 +47,32 @@ export default function HomePage() {
 
   useEffect(() => {
     fetchProducts();
+    loadCartFromLocalStorage();
   }, []);
+
+  const loadCartFromLocalStorage = () => {
+    const savedCart = localStorage.getItem('cart');
+    if (savedCart) {
+      setCartItems(JSON.parse(savedCart));
+    }
+  };
+
+  const saveCartToLocalStorage = (cart: CartItem[]) => {
+    localStorage.setItem('cart', JSON.stringify(cart));
+  };
 
   const fetchProducts = async () => {
     try {
       setLoading(true);
       const response = await fetch(`${API_BASE_URL}/products/province/${WESTERN_PROVINCE_ID}`);
-      
+
       if (!response.ok) {
         throw new Error('Failed to fetch products');
       }
-      
+
       const data = await response.json();
       if (data.success) {
-        setProducts(data.data);
+        setProducts(data.data.filter((product: Product) => product.status === 'active'));
       } else {
         setError(data.message || 'Failed to fetch products');
       }
@@ -65,14 +87,71 @@ export default function HomePage() {
   const filteredProducts = products.filter((product) => {
     const matchesSearch = product.product_name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === "all" || product.category_name === selectedCategory;
-    const hasStock = product.current_stock > 0;
-    return matchesSearch && matchesCategory && hasStock;
+    return matchesSearch && matchesCategory;
   });
 
-  const addToCart = (productId: number) => {
-    setCartItems(prev => prev + 1);
-    // Here you would implement actual cart logic
-    console.log(`Added product ${productId} to cart`);
+  const addToCart = async (product: Product) => {
+    setAddingToCart(product.id);
+
+    try {
+      // Add to backend cart
+      const response = await fetch(`${API_BASE_URL}/cart/${USER_ID}/items`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          productId: product.id,
+          qty: 1
+        }),
+      });
+
+      if (response.ok) {
+        // Update local cart
+        const existingItemIndex = cartItems.findIndex(item => item.id === product.id);
+        let updatedCart;
+
+        if (existingItemIndex >= 0) {
+          updatedCart = cartItems.map((item, index) =>
+            index === existingItemIndex
+              ? { ...item, qty: item.qty + 1 }
+              : item
+          );
+        } else {
+          const newItem: CartItem = {
+            id: product.id,
+            name: product.product_name,
+            price: product.final_price,
+            qty: 1,
+            unit: product.unit
+          };
+          updatedCart = [...cartItems, newItem];
+        }
+
+        setCartItems(updatedCart);
+        saveCartToLocalStorage(updatedCart);
+      } else {
+        console.error('Failed to add item to cart');
+      }
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+    } finally {
+      setAddingToCart(null);
+    }
+  };
+
+  const getCartItemCount = () => {
+    return cartItems.reduce((total, item) => total + item.qty, 0);
+  };
+
+  const getProductImage = (categoryName: string) => {
+    switch (categoryName) {
+      case "Vegetables": return "🥕";
+      case "Fruits": return "🍎";
+      case "Leafy Greens": return "🥬";
+      case "Root Vegetables": return "🥔";
+      default: return "🌱";
+    }
   };
 
   if (loading) {
@@ -81,37 +160,7 @@ export default function HomePage() {
 
   return (
     <div className="home-container">
-      {/* Header */}
-      <header className="site-header">
-        <div className="header-content">
-          <Link href="/" className="logo">
-            <span className="logo-icon">🥬</span>
-            <span className="logo-text">AgriConnect</span>
-          </Link>
-
-          <div className="search-bar">
-            <div className="search-input-container">
-              <Search size={20} className="search-icon" />
-              <input
-                type="text"
-                placeholder="Search for fresh fruits & vegetables..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="search-input"
-              />
-            </div>
-          </div>
-
-          <div className="header-actions">
-            <Link href="/auth/login" className="auth-link">Login</Link>
-            <Link href="/auth/signup" className="auth-link signup">Sign Up</Link>
-            <Link href="/cart" className="cart-link">
-              <ShoppingCart size={24} />
-              {cartItems > 0 && <span className="cart-count">{cartItems}</span>}
-            </Link>
-          </div>
-        </div>
-      </header>
+      <Navbar cartItemCount={getCartItemCount()} />
 
       {/* Hero Section */}
       <section className="hero-section">
@@ -137,6 +186,24 @@ export default function HomePage() {
           <div className="hero-image">
             <div className="hero-image-placeholder">
               🥕🍎🥬🍊🥔
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Search Section */}
+      <section className="search-section">
+        <div className="search-container">
+          <div className="search-bar">
+            <div className="search-input-container">
+              <Search size={20} className="search-icon" />
+              <input
+                type="text"
+                placeholder="Search for fresh fruits & vegetables..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="search-input"
+              />
             </div>
           </div>
         </div>
@@ -185,7 +252,14 @@ export default function HomePage() {
           ) : (
             <div className="products-grid">
               {filteredProducts.map((product) => (
-                <ProductCard key={product.id} product={product} onAddToCart={addToCart} />
+                <Link key={product.id} href={`/product/${product.id}`}>
+                  <ProductCard
+                    product={product}
+                    onAddToCart={() => addToCart(product)}
+                    isAddingToCart={addingToCart === product.id}
+                    getProductImage={getProductImage}
+                  />
+                </Link>
               ))}
             </div>
           )}
@@ -221,121 +295,6 @@ export default function HomePage() {
         .home-container {
           min-height: 100vh;
           background: #fafafa;
-        }
-
-        /* Header Styles */
-        .site-header {
-          background: white;
-          box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-          position: sticky;
-          top: 0;
-          z-index: 100;
-        }
-
-        .header-content {
-          max-width: 1200px;
-          margin: 0 auto;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 1rem 2rem;
-        }
-
-        .logo {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          text-decoration: none;
-          color: #15803d;
-          font-weight: bold;
-          font-size: 1.5rem;
-        }
-
-        .logo-icon {
-          font-size: 2rem;
-        }
-
-        .search-bar {
-          flex: 1;
-          max-width: 500px;
-          margin: 0 2rem;
-        }
-
-        .search-input-container {
-          position: relative;
-          display: flex;
-          align-items: center;
-        }
-
-        .search-icon {
-          position: absolute;
-          left: 1rem;
-          color: #6b7280;
-          z-index: 1;
-        }
-
-        .search-input {
-          width: 100%;
-          padding: 0.75rem 1rem 0.75rem 3rem;
-          border: 2px solid #e5e7eb;
-          border-radius: 25px;
-          font-size: 1rem;
-          outline: none;
-          transition: border-color 0.3s;
-        }
-
-        .search-input:focus {
-          border-color: #15803d;
-        }
-
-        .header-actions {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-        }
-
-        .auth-link {
-          color: #374151;
-          text-decoration: none;
-          padding: 0.5rem 1rem;
-          border-radius: 6px;
-          transition: all 0.3s;
-        }
-
-        .auth-link:hover {
-          background: #f3f4f6;
-        }
-
-        .auth-link.signup {
-          background: #15803d;
-          color: white;
-        }
-
-        .auth-link.signup:hover {
-          background: #166534;
-        }
-
-        .cart-link {
-          position: relative;
-          color: #374151;
-          text-decoration: none;
-          padding: 0.5rem;
-        }
-
-        .cart-count {
-          position: absolute;
-          top: -5px;
-          right: -5px;
-          background: #ef4444;
-          color: white;
-          border-radius: 50%;
-          width: 20px;
-          height: 20px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 0.8rem;
-          font-weight: bold;
         }
 
         /* Hero Section */
@@ -387,6 +346,52 @@ export default function HomePage() {
           border-radius: 20px;
           padding: 3rem;
           box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+
+        /* Search Section */
+        .search-section {
+          padding: 2rem;
+          background: white;
+          border-bottom: 1px solid #e5e7eb;
+        }
+
+        .search-container {
+          max-width: 1200px;
+          margin: 0 auto;
+          display: flex;
+          justify-content: center;
+        }
+
+        .search-bar {
+          width: 100%;
+          max-width: 500px;
+        }
+
+        .search-input-container {
+          position: relative;
+          display: flex;
+          align-items: center;
+        }
+
+        .search-icon {
+          position: absolute;
+          left: 1rem;
+          color: #6b7280;
+          z-index: 1;
+        }
+
+        .search-input {
+          width: 100%;
+          padding: 0.75rem 1rem 0.75rem 3rem;
+          border: 2px solid #e5e7eb;
+          border-radius: 25px;
+          font-size: 1rem;
+          outline: none;
+          transition: border-color 0.3s;
+        }
+
+        .search-input:focus {
+          border-color: #15803d;
         }
 
         /* Categories Section */
@@ -544,17 +549,6 @@ export default function HomePage() {
 
         /* Responsive Design */
         @media (max-width: 768px) {
-          .header-content {
-            flex-direction: column;
-            gap: 1rem;
-            padding: 1rem;
-          }
-
-          .search-bar {
-            margin: 0;
-            width: 100%;
-          }
-
           .hero-content {
             grid-template-columns: 1fr;
             text-align: center;
@@ -633,29 +627,25 @@ function LoadingScreen() {
   );
 }
 
-function ProductCard({ product, onAddToCart }: { product: Product; onAddToCart: (id: number) => void }) {
-  const getStockStatus = (stock: number) => {
-    if (stock === 0) return { text: "Out of Stock", color: "#ef4444" };
-    if (stock < 10) return { text: "Low Stock", color: "#f59e0b" };
-    return { text: "In Stock", color: "#10b981" };
-  };
-
-  const stockStatus = getStockStatus(product.current_stock);
-
+function ProductCard({ product, onAddToCart, isAddingToCart, getProductImage }: {
+  product: Product;
+  onAddToCart: () => void;
+  isAddingToCart: boolean;
+  getProductImage: (category: string) => string;
+}) {
   return (
     <div className="product-card">
       <Link href={`/product/${product.id}`} className="product-link">
         <div className="product-image">
           <div className="product-image-placeholder">
-            {product.category_name === "Vegetables" ? "🥕" :
-             product.category_name === "Fruits" ? "🍎" : "🥬"}
+            {getProductImage(product.category_name)}
           </div>
         </div>
 
         <div className="product-info">
           <h3 className="product-name">{product.product_name}</h3>
           <p className="product-category">{product.category_name}</p>
-          
+
           <div className="product-details">
             <div className="product-price">
               <span className="price-value">Rs. {Number(product.final_price || 0).toFixed(2)}</span>
@@ -663,24 +653,21 @@ function ProductCard({ product, onAddToCart }: { product: Product; onAddToCart: 
             </div>
 
             <div className="product-stock">
-              <span 
-                className="stock-status" 
-                style={{ color: stockStatus.color }}
-              >
-                {stockStatus.text}
+              <span className="stock-status" style={{ color: "#10b981" }}>
+                In Stock
               </span>
               <span className="stock-quantity">
-                {product.current_stock} {product.unit} available
+                {product.total_supplied} {product.unit} available
               </span>
             </div>
 
             <div className="product-rating">
               <div className="stars">
                 {[...Array(5)].map((_, i) => (
-                  <Star 
-                    key={i} 
-                    size={16} 
-                    className={i < (product.average_rating || 4) ? "star-filled" : "star-empty"}
+                  <Star
+                    key={i}
+                    size={16}
+                    className={i < 4 ? "star-filled" : "star-empty"}
                   />
                 ))}
               </div>
@@ -691,13 +678,25 @@ function ProductCard({ product, onAddToCart }: { product: Product; onAddToCart: 
       </Link>
 
       <div className="product-actions">
-        <button 
+        <button
           className="add-to-cart-btn"
-          onClick={() => onAddToCart(product.id)}
-          disabled={product.current_stock === 0}
+          onClick={(e) => {
+            e.preventDefault();
+            onAddToCart();
+          }}
+          disabled={isAddingToCart}
         >
-          <ShoppingCart size={18} />
-          Add to Cart
+          {isAddingToCart ? (
+            <>
+              <div className="loading-spinner-small"></div>
+              Adding...
+            </>
+          ) : (
+            <>
+              <ShoppingCart size={18} />
+              Add to Cart
+            </>
+          )}
         </button>
       </div>
 
@@ -845,6 +844,20 @@ function ProductCard({ product, onAddToCart }: { product: Product; onAddToCart: 
         .add-to-cart-btn:disabled {
           background: #d1d5db;
           cursor: not-allowed;
+        }
+
+        .loading-spinner-small {
+          width: 18px;
+          height: 18px;
+          border: 2px solid #ffffff60;
+          border-top: 2px solid #ffffff;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
         }
       `}</style>
     </div>
