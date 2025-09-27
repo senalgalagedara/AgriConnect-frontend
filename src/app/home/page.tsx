@@ -259,6 +259,14 @@ export default function HomePage() {
                   isAddingToCart={addingToCart === product.id}
                   getProductImage={getProductImage}
                 />
+                <Link key={product.id} href={`/product/${product.id}`}>
+                  <ProductCard
+                    product={product}
+                    onAddToCart={() => addToCart(product)}
+                    isAddingToCart={addingToCart === product.id}
+                    getProductImage={getProductImage}
+                  />
+                </Link>
               ))}
             </div>
 
