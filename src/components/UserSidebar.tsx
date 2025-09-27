@@ -15,27 +15,34 @@ const Sidebar = ({ activeTab, setActiveTab }: SidebarProps) => {
   ];
 
   return (
-    <div className="bg-white shadow-lg h-full w-64 fixed left-0 top-0 z-10">
-      <div className="p-6 border-b border-gray-200">
-        <h1 className="text-2xl font-bold text-gray-800">UserHub</h1>
-        <p className="text-sm text-gray-600">Management Dashboard</p>
+    <div style={{background: 'white', boxShadow: '0 4px 12px rgba(0,0,0,0.06)', height: '100vh', width: 256, position: 'fixed', left: 0, top: 0, zIndex: 10}}>
+      <div style={{padding: 24, borderBottom: '1px solid #e5e7eb'}}>
+        <h1 style={{fontSize: 20, fontWeight: 700, color: '#111827'}}>UserHub</h1>
+        <p style={{fontSize: 12, color: '#6b7280'}}>Management Dashboard</p>
       </div>
-      
-      <nav className="mt-6">
+
+      <nav style={{marginTop: 18}}>
         {menuItems.map((item) => {
           const Icon = item.icon;
+          const isActive = activeTab === item.id;
+          const btnStyle: React.CSSProperties = {
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            padding: '12px 24px',
+            textAlign: 'left',
+            background: isActive ? '#eff6ff' : 'transparent',
+            borderRight: isActive ? '4px solid #3b82f6' : undefined,
+            color: isActive ? '#1e40af' : '#374151',
+            cursor: 'pointer',
+            border: 'none',
+            outline: 'none',
+          };
+
           return (
-            <button
-              key={item.id}
-              onClick={() => setActiveTab(item.id)}
-              className={`w-full flex items-center px-6 py-3 text-left hover:bg-blue-50 transition-colors duration-200 ${
-                activeTab === item.id
-                  ? 'bg-blue-100 border-r-4 border-blue-500 text-blue-700'
-                  : 'text-gray-700 hover:text-blue-600'
-              }`}
-            >
-              <Icon className="w-5 h-5 mr-3" />
-              {item.label}
+            <button key={item.id} onClick={() => setActiveTab(item.id)} style={btnStyle}>
+              <Icon size={18} style={{marginRight: 12}} />
+              <span>{item.label}</span>
             </button>
           );
         })}

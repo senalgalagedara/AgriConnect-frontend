@@ -93,18 +93,23 @@ export default function Home() {
     }
   };
 
+  const pageStyle: React.CSSProperties = { minHeight: '100vh', background: '#f8fafc' };
+  const contentWrapperStyle: React.CSSProperties = { marginLeft: 256 };
+  const mainStyle: React.CSSProperties = { padding: 32 };
+  const successStyle: React.CSSProperties = { marginBottom: 24, background: '#ecfdf5', border: '1px solid #bbf7d0', color: '#166534', padding: '12px 16px', borderRadius: 8, boxShadow: '0 4px 10px rgba(16,185,129,0.06)' };
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div style={pageStyle}>
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
-      
-      <div className="ml-64">
-        <main className="p-8">
+
+      <div style={contentWrapperStyle}>
+        <main style={mainStyle}>
           {showSuccessMessage && (
-            <div className="mb-6 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg shadow-md">
-              <p className="font-medium">Success! User has been added successfully.</p>
+            <div style={successStyle}>
+              <p style={{fontWeight: 600}}>Success! User has been added successfully.</p>
             </div>
           )}
-          
+
           {renderContent()}
         </main>
       </div>

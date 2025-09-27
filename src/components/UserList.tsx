@@ -34,53 +34,57 @@ const UserList = ({ users }: UserListProps) => {
 
   const stats = getUserStats();
 
+  const containerStyle: React.CSSProperties = { marginBottom: 32 };
+  const headerStyle: React.CSSProperties = { display: 'flex', alignItems: 'center', marginBottom: 24 };
+  const iconStyle: React.CSSProperties = { marginRight: 12, color: '#2563eb' };
+  const statsGridStyle: React.CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 };
+  const statCardStyle: React.CSSProperties = { background: '#fff', borderRadius: 10, padding: 20, boxShadow: '0 4px 8px rgba(0,0,0,0.04)', border: '1px solid #f3f4f6' };
+  const statTitleStyle: React.CSSProperties = { fontSize: 13, color: '#6b7280', marginBottom: 8 };
+  const statNumberStyle = (color: string): React.CSSProperties => ({ fontSize: 28, fontWeight: 700, color });
+
+  const searchRowStyle: React.CSSProperties = { display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' };
+  const searchInputWrapper: React.CSSProperties = { position: 'relative', flex: '1' };
+  const searchInputStyle: React.CSSProperties = { width: '100%', padding: '10px 14px 10px 40px', border: '1px solid #d1d5db', borderRadius: 10, fontSize: 14 };
+  const filterSelectStyle: React.CSSProperties = { padding: '10px 14px', border: '1px solid #d1d5db', borderRadius: 10, minWidth: 150 };
+
+  const noUsersStyle: React.CSSProperties = { textAlign: 'center', padding: 48, color: '#6b7280' };
+  const gridStyle: React.CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 };
+
   return (
     <div>
-      <div className="mb-8">
-        <div className="flex items-center mb-6">
-          <UsersIcon className="w-8 h-8 text-blue-600 mr-3" />
-          <h2 className="text-2xl font-bold text-gray-800">User Management</h2>
+      <div style={containerStyle}>
+        <div style={headerStyle}>
+          <UsersIcon size={28} style={iconStyle} />
+          <h2 style={{fontSize: 20, fontWeight: 700, color: '#111827'}}>User Management</h2>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-          <div className="bg-white rounded-lg p-6 shadow-md border border-gray-100">
-            <h3 className="text-sm font-medium text-gray-600 mb-2">Total Users</h3>
-            <p className="text-3xl font-bold text-blue-600">{stats.total}</p>
+        <div style={statsGridStyle}>
+          <div style={statCardStyle}>
+            <h3 style={statTitleStyle}>Total Users</h3>
+            <p style={statNumberStyle('#2563eb')}>{stats.total}</p>
           </div>
-          <div className="bg-white rounded-lg p-6 shadow-md border border-gray-100">
-            <h3 className="text-sm font-medium text-gray-600 mb-2">Farmers</h3>
-            <p className="text-3xl font-bold text-green-600">{stats.farmer}</p>
+          <div style={statCardStyle}>
+            <h3 style={statTitleStyle}>Farmers</h3>
+            <p style={statNumberStyle('#10b981')}>{stats.farmer}</p>
           </div>
-          <div className="bg-white rounded-lg p-6 shadow-md border border-gray-100">
-            <h3 className="text-sm font-medium text-gray-600 mb-2">Consumers</h3>
-            <p className="text-3xl font-bold text-blue-600">{stats.consumer}</p>
+          <div style={statCardStyle}>
+            <h3 style={statTitleStyle}>Consumers</h3>
+            <p style={statNumberStyle('#2563eb')}>{stats.consumer}</p>
           </div>
-          <div className="bg-white rounded-lg p-6 shadow-md border border-gray-100">
-            <h3 className="text-sm font-medium text-gray-600 mb-2">Drivers</h3>
-            <p className="text-3xl font-bold text-orange-600">{stats.driver}</p>
+          <div style={statCardStyle}>
+            <h3 style={statTitleStyle}>Drivers</h3>
+            <p style={statNumberStyle('#f97316')}>{stats.driver}</p>
           </div>
         </div>
 
-        {/* Search and Filter */}
-        <div className="flex flex-col sm:flex-row gap-4 mb-6">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search users by name or email..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
+        <div style={searchRowStyle}>
+          <div style={searchInputWrapper}>
+            <Search size={16} style={{position: 'absolute', left: 12, top: 12, color: '#9ca3af'}} />
+            <input type="text" placeholder="Search users by name or email..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={searchInputStyle} />
           </div>
-          <div className="relative">
-            <Filter className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
-            <select
-              value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value as UserRole | 'all')}
-              className="pl-10 pr-8 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white min-w-[150px]"
-            >
+          <div>
+            <Filter size={16} style={{position: 'absolute', left: 12, top: 12, color: '#9ca3af'}} />
+            <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value as UserRole | 'all')} style={filterSelectStyle}>
               <option value="all">All Roles</option>
               <option value="farmer">Farmers</option>
               <option value="consumer">Consumers</option>
@@ -90,19 +94,14 @@ const UserList = ({ users }: UserListProps) => {
         </div>
       </div>
 
-      {/* User Grid */}
       {filteredUsers.length === 0 ? (
-        <div className="text-center py-12">
-          <UsersIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No users found</h3>
-          <p className="text-gray-600">
-            {searchTerm || roleFilter !== 'all' 
-              ? 'Try adjusting your search or filter criteria.' 
-              : 'Get started by adding your first user.'}
-          </p>
+        <div style={noUsersStyle}>
+          <UsersIcon size={56} color="#d1d5db" />
+          <h3 style={{fontSize: 18, fontWeight: 600, color: '#111827', marginTop: 12}}>No users found</h3>
+          <p style={{color: '#6b7280'}}>{searchTerm || roleFilter !== 'all' ? 'Try adjusting your search or filter criteria.' : 'Get started by adding your first user.'}</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div style={gridStyle}>
           {filteredUsers.map((user) => (
             <UserCard key={user.id} user={user} />
           ))}
