@@ -5,7 +5,7 @@ interface SidebarProps {
   setActiveTab: (tab: string) => void;
 }
 
-const Sidebar = ({ activeTab, setActiveTab }: SidebarProps) => {
+const UserSidebar = ({ activeTab, setActiveTab }: SidebarProps) => {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home },
     { id: 'users', label: 'All Users', icon: Users },
@@ -51,4 +51,4 @@ const Sidebar = ({ activeTab, setActiveTab }: SidebarProps) => {
   );
 };
 
-export default Sidebar;
+export default UserSidebar;

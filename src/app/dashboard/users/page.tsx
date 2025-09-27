@@ -2,10 +2,11 @@
 
 import { useState } from 'react';
 import { User, CreateUserData } from '@/interface/User';
-import Sidebar from '@/components/UserSidebar';
+import UserSidebar from '@/components/UserSidebar';
 import Dashboard from '@/components/Dashboard';
 import UserList from '@/components/UserList';
 import UserForm from '@/components/UserForm';
+import Sidebar from "@/components/sidebar";
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -95,7 +96,15 @@ export default function Home() {
 
   return (
     <div style={{minHeight: '100vh', background: '#f8fafc', display: 'flex', gap: 24}}>
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+      {/* Main app sidebar on the very left */}
+      <div style={{flex: '0 0 240px', position: 'sticky', top: 0, height: '100vh', overflowY: 'auto'}}>
+        <Sidebar />
+      </div>
+
+      {/* Mini user sidebar next to the main sidebar */}
+      <div style={{flex: '0 0 280px', position: 'sticky', top: 0, height: '100vh', overflowY: 'auto'}}>
+        <UserSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+      </div>
 
       <div style={{flex: 1}}>
         <main style={{padding: 32}}>
