@@ -1,0 +1,121 @@
+import { useState } from 'react';
+import { User, Mail, Phone, MapPin, UserCheck } from 'lucide-react';
+import { CreateUserData, UserRole  } from '@/interface/User';
+
+
+interface UserFormProps {
+  onSubmit: (userData: CreateUserData) => void;
+  onCancel: () => void;
+}
+
+const UserForm = ({ onSubmit, onCancel }: UserFormProps) => {
+  const [formData, setFormData] = useState<CreateUserData>({
+    name: '',
+    email: '',
+    phone: '',
+    role: 'consumer',
+    address: '',
+  });
+  
+  const [errors, setErrors] = useState<Partial<CreateUserData>>({});
+
+  const validateForm = (): boolean => {
+    const newErrors: Partial<CreateUserData> = {};
+    
+    if (!formData.name.trim()) newErrors.name = 'Name is required';
+    if (!formData.email.trim()) {
+      newErrors.email = 'Email is required';
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      newErrors.email = 'Email is invalid';
+    }
+    if (!formData.phone.trim()) newErrors.phone = 'Phone is required';
+    if (!formData.address.trim()) newErrors.address = 'Address is required';
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (validateForm()) {
+      onSubmit(formData);
+    }
+  };
+
+  const handleInputChange = (field: keyof CreateUserData, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: '' }));
+    }
+  };
+
+  const roleOptions: { value: UserRole; label: string; color: string }[] = [
+    { value: 'farmer', label: 'Farmer', color: 'text-green-600' },
+    { value: 'consumer', label: 'Consumer', color: 'text-blue-600' },
+    { value: 'driver', label: 'Driver', color: 'text-orange-600' },
+  ];
+
+  const containerStyle: React.CSSProperties = { background: '#fff', borderRadius: 12, boxShadow: '0 6px 18px rgba(0,0,0,0.06)', padding: 24 };
+  const headerStyle: React.CSSProperties = { display: 'flex', alignItems: 'center', marginBottom: 20 };
+  const titleStyle: React.CSSProperties = { fontSize: 20, fontWeight: 700, color: '#111827' };
+  const formGridStyle: React.CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 };
+  const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 };
+  const inputStyle = (hasError = false): React.CSSProperties => ({ width: '100%', padding: '10px 12px', border: `1px solid ${hasError ? '#fecaca' : '#d1d5db'}`, borderRadius: 8, fontSize: 14, background: hasError ? '#fff7f7' : 'white' });
+  const textareaStyle = (hasError = false): React.CSSProperties => ({ width: '100%', padding: '10px 12px', border: `1px solid ${hasError ? '#fecaca' : '#d1d5db'}`, borderRadius: 8, fontSize: 14, resize: 'none', background: hasError ? '#fff7f7' : 'white' });
+  const actionsStyle: React.CSSProperties = { display: 'flex', justifyContent: 'flex-end', gap: 12, paddingTop: 12 };
+  const cancelBtnStyle: React.CSSProperties = { padding: '10px 18px', border: '1px solid #d1d5db', color: '#374151', borderRadius: 8, background: 'white', cursor: 'pointer' };
+  const submitBtnStyle: React.CSSProperties = { padding: '10px 18px', background: '#2563eb', color: 'white', borderRadius: 8, border: 'none', cursor: 'pointer', boxShadow: '0 8px 20px rgba(37,99,235,0.12)' };
+
+  return (
+    <div style={containerStyle}>
+      <div style={headerStyle}>
+        <UserCheck size={28} style={{color: '#2563eb', marginRight: 12}} />
+        <h2 style={titleStyle}>Add New User</h2>
+      </div>
+
+      <form onSubmit={handleSubmit} style={{display: 'grid', gap: 16}}>
+        <div style={formGridStyle}>
+          <div>
+            <label style={labelStyle}><User size={14} style={{marginRight: 8}} /> Full Name</label>
+            <input type="text" value={formData.name} onChange={(e) => handleInputChange('name', e.target.value)} style={inputStyle(Boolean(errors.name))} placeholder="Enter full name" />
+            {errors.name && <p style={{marginTop: 6, fontSize: 13, color: '#dc2626'}}>{errors.name}</p>}
+          </div>
+
+          <div>
+            <label style={labelStyle}><Mail size={14} style={{marginRight: 8}} /> Email Address</label>
+            <input type="email" value={formData.email} onChange={(e) => handleInputChange('email', e.target.value)} style={inputStyle(Boolean(errors.email))} placeholder="Enter email address" />
+            {errors.email && <p style={{marginTop: 6, fontSize: 13, color: '#dc2626'}}>{errors.email}</p>}
+          </div>
+
+          <div>
+            <label style={labelStyle}><Phone size={14} style={{marginRight: 8}} /> Phone Number</label>
+            <input type="tel" value={formData.phone} onChange={(e) => handleInputChange('phone', e.target.value)} style={inputStyle(Boolean(errors.phone))} placeholder="Enter phone number" />
+            {errors.phone && <p style={{marginTop: 6, fontSize: 13, color: '#dc2626'}}>{errors.phone}</p>}
+          </div>
+
+          <div>
+            <label style={labelStyle}><UserCheck size={14} style={{marginRight: 8}} /> User Role</label>
+            <select value={formData.role} onChange={(e) => handleInputChange('role', e.target.value as UserRole)} style={inputStyle()}>
+              {roleOptions.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label style={labelStyle}><MapPin size={14} style={{marginRight: 8}} /> Address</label>
+          <textarea value={formData.address} onChange={(e) => handleInputChange('address', e.target.value)} rows={3} style={textareaStyle(Boolean(errors.address))} placeholder="Enter complete address" />
+          {errors.address && <p style={{marginTop: 6, fontSize: 13, color: '#dc2626'}}>{errors.address}</p>}
+        </div>
+
+        <div style={actionsStyle}>
+          <button type="button" onClick={onCancel} style={cancelBtnStyle}>Cancel</button>
+          <button type="submit" style={submitBtnStyle}>Add User</button>
+        </div>
+      </form>
+    </div>
+  );
+};
+
+export default UserForm;
