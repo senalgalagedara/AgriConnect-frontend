@@ -252,6 +252,13 @@ export default function HomePage() {
           ) : (
             <div className="products-grid">
               {filteredProducts.map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  onAddToCart={() => addToCart(product)}
+                  isAddingToCart={addingToCart === product.id}
+                  getProductImage={getProductImage}
+                />
                 <Link key={product.id} href={`/product/${product.id}`}>
                   <ProductCard
                     product={product}
@@ -262,6 +269,7 @@ export default function HomePage() {
                 </Link>
               ))}
             </div>
+
           )}
         </div>
       </section>

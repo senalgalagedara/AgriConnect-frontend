@@ -39,7 +39,7 @@ export default function ItemCard({
   const stockStatus = getStockStatus(stockNum);
 
   return (
-    <Link href={`/dashboard/inventory/${id}`} className="item-card">
+    <Link href={`/dashboard/inventory/1/${id}`} className="item-card">
       <div className="card-header">
         <h3 className="product-name">{name}</h3>
         <span className="category-badge">{category}</span>
