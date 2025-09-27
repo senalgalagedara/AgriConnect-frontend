@@ -76,16 +76,16 @@ export default function Home() {
         );
       case 'analytics':
         return (
-          <div className="bg-white rounded-xl shadow-md p-8 text-center">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">Analytics</h2>
-            <p className="text-gray-600">Analytics dashboard coming soon...</p>
+          <div style={{background: '#fff', borderRadius: 12, boxShadow: '0 6px 18px rgba(0,0,0,0.06)', padding: 24, textAlign: 'center'}}>
+            <h2 style={{fontSize: 20, fontWeight: 700, color: '#111827', marginBottom: 12}}>Analytics</h2>
+            <p style={{color: '#6b7280'}}>Analytics dashboard coming soon...</p>
           </div>
         );
       case 'settings':
         return (
-          <div className="bg-white rounded-xl shadow-md p-8 text-center">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">Settings</h2>
-            <p className="text-gray-600">Settings panel coming soon...</p>
+          <div style={{background: '#fff', borderRadius: 12, boxShadow: '0 6px 18px rgba(0,0,0,0.06)', padding: 24, textAlign: 'center'}}>
+            <h2 style={{fontSize: 20, fontWeight: 700, color: '#111827', marginBottom: 12}}>Settings</h2>
+            <p style={{color: '#6b7280'}}>Settings panel coming soon...</p>
           </div>
         );
       default:
@@ -93,19 +93,14 @@ export default function Home() {
     }
   };
 
-  const pageStyle: React.CSSProperties = { minHeight: '100vh', background: '#f8fafc' };
-  const contentWrapperStyle: React.CSSProperties = { marginLeft: 256 };
-  const mainStyle: React.CSSProperties = { padding: 32 };
-  const successStyle: React.CSSProperties = { marginBottom: 24, background: '#ecfdf5', border: '1px solid #bbf7d0', color: '#166534', padding: '12px 16px', borderRadius: 8, boxShadow: '0 4px 10px rgba(16,185,129,0.06)' };
-
   return (
-    <div style={pageStyle}>
+    <div style={{minHeight: '100vh', background: '#f8fafc'}}>
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
 
-      <div style={contentWrapperStyle}>
-        <main style={mainStyle}>
+      <div style={{marginLeft: 256}}>
+        <main style={{padding: 32}}>
           {showSuccessMessage && (
-            <div style={successStyle}>
+            <div style={{marginBottom: 24, background: '#ecfdf5', border: '1px solid #bbf7d0', color: '#065f46', padding: '12px 16px', borderRadius: 8, boxShadow: '0 4px 8px rgba(0,0,0,0.04)'}}>
               <p style={{fontWeight: 600}}>Success! User has been added successfully.</p>
             </div>
           )}
