@@ -15,7 +15,7 @@ const Sidebar = ({ activeTab, setActiveTab }: SidebarProps) => {
   ];
 
   return (
-    <div style={{background: 'white', boxShadow: '0 4px 12px rgba(0,0,0,0.06)', height: '100vh', width: 256, position: 'sticky', top: 0}}>
+  <div style={{background: 'white', boxShadow: '0 4px 12px rgba(0,0,0,0.06)', minHeight: '100vh', flex: '0 0 256px', position: 'sticky', top: 0, zIndex: 20}}>
       <div style={{padding: 24, borderBottom: '1px solid #e5e7eb'}}>
         <h1 style={{fontSize: 20, fontWeight: 700, color: '#111827'}}>UserHub</h1>
         <p style={{fontSize: 12, color: '#6b7280'}}>Management Dashboard</p>

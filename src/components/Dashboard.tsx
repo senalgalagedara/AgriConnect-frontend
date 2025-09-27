@@ -57,53 +57,36 @@ const Dashboard = ({ users, onNavigate }: DashboardProps) => {
     },
   ];
 
-  const containerStyle: React.CSSProperties = {};
-  const headerStyle: React.CSSProperties = { marginBottom: 32 };
-  const titleStyle: React.CSSProperties = { fontSize: 28, fontWeight: 700, color: '#111827', marginBottom: 8 };
-  const subtitleStyle: React.CSSProperties = { color: '#6b7280' };
-
-  const gridStyle: React.CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 32 };
-  const cardStyle: React.CSSProperties = { background: '#fff', borderRadius: 12, padding: 20, boxShadow: '0 6px 18px rgba(0,0,0,0.06)', border: '1px solid #f3f4f6' };
-  const cardHeaderStyle: React.CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'space-between' };
-  const cardTitleStyle: React.CSSProperties = { fontSize: 13, color: '#6b7280', marginBottom: 6 };
-  const cardValueStyle: React.CSSProperties = { fontSize: 28, fontWeight: 700, color: '#111827' };
-  const iconWrapStyle = (bg: string): React.CSSProperties => ({ padding: 10, borderRadius: 8, background: bg, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' });
-
-  const actionsGridStyle: React.CSSProperties = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 32 };
-  const actionBtnStyle = (bg: string): React.CSSProperties => ({ width: '100%', display: 'flex', alignItems: 'center', padding: 16, background: bg, borderRadius: 12, border: 'none', cursor: 'pointer', textAlign: 'left' });
-  const actionTitleStyle: React.CSSProperties = { fontWeight: 700, color: '#0f172a' };
-  const actionDescStyle: React.CSSProperties = { fontSize: 13, color: '#2563eb' };
-
-  const recentListStyle: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 12 };
-  const recentItemStyle: React.CSSProperties = { display: 'flex', alignItems: 'center', padding: 12, background: '#f8fafc', borderRadius: 10 };
-  const statusBadgeStyle = (active: boolean): React.CSSProperties => ({ padding: '6px 8px', borderRadius: 9999, fontSize: 12, fontWeight: 600, background: active ? '#ecfdf5' : '#fff1f2', color: active ? '#166534' : '#991b1b' });
-
-  const distributionStyle: React.CSSProperties = { background: '#fff', borderRadius: 12, padding: 20, boxShadow: '0 6px 18px rgba(0,0,0,0.06)', border: '1px solid #f3f4f6' };
-  const distributionGrid: React.CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 };
-  const distributionCircleStyle = (bg: string): React.CSSProperties => ({ width: 80, height: 80, borderRadius: 9999, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' });
+  const container: React.CSSProperties = { maxWidth: 1100, margin: '0 auto', padding: '8px 0' };
+  const headerTitle: React.CSSProperties = { fontSize: 32, fontWeight: 800, color: '#0f172a', marginBottom: 6 };
+  const headerSubtitle: React.CSSProperties = { color: '#475569', marginBottom: 18 };
+  const statsGrid: React.CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 18, marginBottom: 20 };
+  const cardStyle: React.CSSProperties = { background: '#fff', borderRadius: 12, padding: 18, boxShadow: '0 8px 20px rgba(2,6,23,0.04)', border: '1px solid #eef2f7' };
+  const iconBadgeStyle = (bg: string): React.CSSProperties => ({ padding: 10, borderRadius: 10, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center' });
+  const quickGrid: React.CSSProperties = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, marginBottom: 20 };
+  const actionBtn: React.CSSProperties = { width: '100%', display: 'flex', alignItems: 'center', padding: 14, borderRadius: 10, textAlign: 'left', border: '1px solid #eef2f7', background: '#fcfeff', cursor: 'pointer' };
+  const recentItem: React.CSSProperties = { display: 'flex', alignItems: 'center', padding: 12, borderRadius: 10, background: '#fbfdff', border: '1px solid #f1f5f9', marginBottom: 8 };
+  const roleGrid: React.CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 18 };
 
   return (
-    <div style={containerStyle}>
-      <div style={headerStyle}>
-        <h1 style={titleStyle}>Welcome to UserHub</h1>
-        <p style={subtitleStyle}>Manage your users efficiently with our comprehensive dashboard.</p>
+    <div style={container}>
+      <div style={{marginBottom: 18}}>
+        <h1 style={headerTitle}>Welcome to UserHub</h1>
+        <p style={headerSubtitle}>Manage your users efficiently with our comprehensive dashboard.</p>
       </div>
 
-      <div style={gridStyle}>
+      <div style={statsGrid}>
         {statCards.map((card, index) => {
           const Icon = card.icon;
-          const bg = card.bgColor === 'bg-blue-50' ? '#eff6ff' : card.bgColor === 'bg-green-50' ? '#ecfdf5' : '#f5f3ff';
-          const color = card.color === 'text-blue-600' ? '#2563eb' : card.color === 'text-green-600' ? '#10b981' : '#7c3aed';
-
           return (
             <div key={index} style={cardStyle}>
-              <div style={cardHeaderStyle}>
+              <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
                 <div>
-                  <p style={cardTitleStyle}>{card.title}</p>
-                  <p style={cardValueStyle}>{card.value}</p>
+                  <p style={{fontSize: 13, color: '#64748b', marginBottom: 6}}>{card.title}</p>
+                  <p style={{fontSize: 24, fontWeight: 700, color: '#0b1220'}}>{card.value}</p>
                 </div>
-                <div style={iconWrapStyle(bg)}>
-                  <Icon size={20} color={color} />
+                <div style={iconBadgeStyle(index % 2 === 0 ? '#eef2ff' : '#fef3ff')}>
+                  <Icon size={22} color={index % 2 === 0 ? '#2563eb' : '#7c3aed'} />
                 </div>
               </div>
             </div>
@@ -111,40 +94,43 @@ const Dashboard = ({ users, onNavigate }: DashboardProps) => {
         })}
       </div>
 
-      <div style={actionsGridStyle}>
+      <div style={quickGrid}>
         <div style={cardStyle}>
-          <h3 style={{fontSize: 16, fontWeight: 700, color: '#111827', marginBottom: 12}}>Quick Actions</h3>
-          <div style={{display: 'flex', flexDirection: 'column', gap: 12}}>
-            <button onClick={() => onNavigate('add-user')} style={actionBtnStyle('#eff6ff')}>
-              <UserPlus size={18} color="#2563eb" style={{marginRight: 12}} />
+          <h3 style={{fontSize: 16, fontWeight: 700, color: '#0b1220', marginBottom: 10}}>Quick Actions</h3>
+          <div style={{display: 'flex', flexDirection: 'column', gap: 10}}>
+            <button onClick={() => onNavigate('add-user')} style={actionBtn}>
+              <UserPlus size={18} style={{marginRight: 12, color: '#2563eb'}} />
               <div>
-                <p style={actionTitleStyle}>Add New User</p>
-                <p style={actionDescStyle}>Create farmer, consumer, or driver accounts</p>
+                <p style={{fontWeight: 600, color: '#0b1220'}}>Add New User</p>
+                <p style={{fontSize: 13, color: '#2563eb'}}>Create farmer, consumer, or driver accounts</p>
               </div>
             </button>
-            <button onClick={() => onNavigate('users')} style={actionBtnStyle('#f8fafc')}>
-              <Users size={18} color="#374151" style={{marginRight: 12}} />
+
+            <button onClick={() => onNavigate('users')} style={{...actionBtn, background: '#fff'}}> 
+              <Users size={18} style={{marginRight: 12, color: '#475569'}} />
               <div>
-                <p style={{fontWeight: 700, color: '#0f172a'}}>Manage Users</p>
-                <p style={{fontSize: 13, color: '#6b7280'}}>View and manage all registered users</p>
+                <p style={{fontWeight: 600, color: '#0b1220'}}>Manage Users</p>
+                <p style={{fontSize: 13, color: '#64748b'}}>View and manage all registered users</p>
               </div>
             </button>
           </div>
         </div>
 
         <div style={cardStyle}>
-          <h3 style={{fontSize: 16, fontWeight: 700, color: '#111827', marginBottom: 12}}>Recent Users</h3>
+          <h3 style={{fontSize: 16, fontWeight: 700, color: '#0b1220', marginBottom: 10}}>Recent Users</h3>
           {recentUsers.length === 0 ? (
-            <p style={{color: '#6b7280', textAlign: 'center', padding: '12px 0'}}>No users added yet</p>
+            <p style={{color: '#64748b', textAlign: 'center', padding: 18}}>No users added yet</p>
           ) : (
-            <div style={recentListStyle}>
+            <div>
               {recentUsers.map((user) => (
-                <div key={user.id} style={recentItemStyle}>
+                <div key={user.id} style={recentItem}>
                   <div style={{flex: 1}}>
-                    <p style={{fontWeight: 700, color: '#0f172a'}}>{user.name}</p>
-                    <p style={{fontSize: 13, color: '#6b7280', textTransform: 'capitalize'}}>{user.role}</p>
+                    <p style={{fontWeight: 600, color: '#0b1220'}}>{user.name}</p>
+                    <p style={{fontSize: 13, color: '#64748b', textTransform: 'capitalize'}}>{user.role}</p>
                   </div>
-                  <span style={statusBadgeStyle(user.status === 'active')}>{user.status}</span>
+                  <span style={{padding: '6px 8px', borderRadius: 9999, fontSize: 12, fontWeight: 600, color: user.status === 'active' ? '#166534' : '#991b1b', background: user.status === 'active' ? '#dcfce7' : '#fee2e2'}}>
+                    {user.status}
+                  </span>
                 </div>
               ))}
             </div>
@@ -152,26 +138,28 @@ const Dashboard = ({ users, onNavigate }: DashboardProps) => {
         </div>
       </div>
 
-      <div style={distributionStyle}>
-        <h3 style={{fontSize: 16, fontWeight: 700, color: '#111827', marginBottom: 12}}>User Distribution by Role</h3>
-        <div style={distributionGrid}>
+      <div style={{...cardStyle}}>
+        <h3 style={{fontSize: 16, fontWeight: 700, color: '#0b1220', marginBottom: 12}}>User Distribution by Role</h3>
+        <div style={roleGrid}>
           <div style={{textAlign: 'center'}}>
-            <div style={distributionCircleStyle('#ecfdf5')}>
-              <span style={{fontSize: 20, fontWeight: 700, color: '#10b981'}}>{stats.farmer}</span>
+            <div style={{width: 84, height: 84, background: '#ecfdf5', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px'}}>
+              <span style={{fontSize: 24, fontWeight: 700, color: '#16a34a'}}>{stats.farmer}</span>
             </div>
-            <p style={{fontWeight: 700, color: '#111827'}}>Farmers</p>
+            <p style={{fontWeight: 600, color: '#0b1220'}}>Farmers</p>
           </div>
+
           <div style={{textAlign: 'center'}}>
-            <div style={distributionCircleStyle('#eff6ff')}>
-              <span style={{fontSize: 20, fontWeight: 700, color: '#2563eb'}}>{stats.consumer}</span>
+            <div style={{width: 84, height: 84, background: '#eff6ff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px'}}>
+              <span style={{fontSize: 24, fontWeight: 700, color: '#2563eb'}}>{stats.consumer}</span>
             </div>
-            <p style={{fontWeight: 700, color: '#111827'}}>Consumers</p>
+            <p style={{fontWeight: 600, color: '#0b1220'}}>Consumers</p>
           </div>
+
           <div style={{textAlign: 'center'}}>
-            <div style={distributionCircleStyle('#fff7ed')}>
-              <span style={{fontSize: 20, fontWeight: 700, color: '#f97316'}}>{stats.driver}</span>
+            <div style={{width: 84, height: 84, background: '#fff7ed', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px'}}>
+              <span style={{fontSize: 24, fontWeight: 700, color: '#fb923c'}}>{stats.driver}</span>
             </div>
-            <p style={{fontWeight: 700, color: '#111827'}}>Drivers</p>
+            <p style={{fontWeight: 600, color: '#0b1220'}}>Drivers</p>
           </div>
         </div>
       </div>
