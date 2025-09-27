@@ -15,13 +15,13 @@ const Sidebar = ({ activeTab, setActiveTab }: SidebarProps) => {
   ];
 
   return (
-    <div style={{background: 'white', boxShadow: '0 4px 12px rgba(0,0,0,0.06)', height: '100vh', width: 256, position: 'fixed', left: 0, top: 0, zIndex: 10}}>
+    <div style={{background: 'white', boxShadow: '0 4px 12px rgba(0,0,0,0.06)', height: '100vh', width: 256, position: 'sticky', top: 0}}>
       <div style={{padding: 24, borderBottom: '1px solid #e5e7eb'}}>
         <h1 style={{fontSize: 20, fontWeight: 700, color: '#111827'}}>UserHub</h1>
         <p style={{fontSize: 12, color: '#6b7280'}}>Management Dashboard</p>
       </div>
 
-      <nav style={{marginTop: 18}}>
+  <nav style={{marginTop: 18}}>
         {menuItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;

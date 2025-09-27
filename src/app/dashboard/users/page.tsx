@@ -94,10 +94,10 @@ export default function Home() {
   };
 
   return (
-    <div style={{minHeight: '100vh', background: '#f8fafc'}}>
+    <div style={{minHeight: '100vh', background: '#f8fafc', display: 'flex', gap: 24}}>
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
 
-      <div style={{marginLeft: 256}}>
+      <div style={{flex: 1}}>
         <main style={{padding: 32}}>
           {showSuccessMessage && (
             <div style={{marginBottom: 24, background: '#ecfdf5', border: '1px solid #bbf7d0', color: '#065f46', padding: '12px 16px', borderRadius: 8, boxShadow: '0 4px 8px rgba(0,0,0,0.04)'}}>
