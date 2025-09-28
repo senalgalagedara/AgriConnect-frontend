@@ -15,7 +15,8 @@
 //    });
 
 import React from "react";
-import { useFeedback, OpenFeedbackOptions } from "./FeedbackContext";
+import { useFeedback } from "./FeedbackContext";
+import { OpenFeedbackOptions } from "@/interface/Feedback";
 
 export function FeedbackButton({ label = "Feedback", ...opts }: { label?: string } & OpenFeedbackOptions) {
   const { open } = useFeedback();

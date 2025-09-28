@@ -1,34 +1,6 @@
 "use client";
 import React, { createContext, useCallback, useContext, useState, ReactNode } from "react";
-
-export interface FeedbackData {
-  rating: number;
-  comment: string;
-  // Allow extension (e.g., orderId, userId)
-  meta?: Record<string, any>;
-}
-
-export interface OpenFeedbackOptions {
-  title?: string;
-  subtitle?: string;
-  submitLabel?: string;
-  homeLabel?: string;
-  rejoinLabel?: string;
-  meta?: Record<string, any>;
-  onSubmitted?: (data: FeedbackData) => void | Promise<void>;
-  onClosed?: () => void;
-  // Success screen customization
-  successTitle?: string;
-  successMessage?: string;
-  showRatingSummary?: boolean; // show rating + comment snippet on success
-  autoCloseDelay?: number | null; // ms. null disables auto close
-}
-
-interface FeedbackContextValue {
-  open: (options?: OpenFeedbackOptions) => void;
-  close: () => void;
-  isOpen: boolean;
-}
+import { FeedbackData, OpenFeedbackOptions, FeedbackContextValue } from "@/interface/Feedback";
 
 const FeedbackContext = createContext<FeedbackContextValue | undefined>(undefined);
 
@@ -262,3 +234,5 @@ export function useFeedback() {
   if (!ctx) throw new Error("useFeedback must be used within FeedbackProvider");
   return ctx;
 }
+export type { OpenFeedbackOptions };
+
