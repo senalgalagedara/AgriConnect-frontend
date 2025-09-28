@@ -1,5 +1,5 @@
 import "../styles/globals.css";
-import { FeedbackProvider } from "../../modules/feedback/components/FeedbackContext";
+import { FeedbackProvider } from "../components/FeedbackContext";
 
 export default function RootLayout({
   children,
