@@ -78,9 +78,10 @@ export default function Inventory() {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch(
-        `${API_BASE_URL}/products/province/${pidNum}/search?q=${encodeURIComponent(searchTerm)}`
-      );
+      const url = new URL(`${API_BASE_URL}/products`);
+      url.searchParams.set("province_id", String(pidNum));
+      url.searchParams.set("search", searchTerm);
+      const response = await fetch(url.toString(), { cache: "no-store" });
       if (!response.ok) throw new Error("Search failed");
 
       const data = await response.json();
@@ -102,11 +103,12 @@ export default function Inventory() {
 
     const formData = new FormData(e.currentTarget);
     const newProduct = {
-      product_name: String(formData.get("product_name") || ""),
+      name: String(formData.get("product_name") || ""),
       category_id: Number(formData.get("category_id")) || 1,
-      province_id: pidNum, 
+      province_id: pidNum,
       daily_limit: Number(formData.get("daily_limit")) || 0,
       unit: (formData.get("unit") as string) || "kg",
+      final_price: Number(formData.get("final_price")) || 0,
     };
 
     try {
@@ -186,21 +188,17 @@ export default function Inventory() {
           ) : (
             <div className="card-grid">
   {products.map((product) => (
-    <Link
+    <ItemCard
       key={product.id}
-      href={`/dashboard/inventory/${pid}/ ${product.id}`}
-      className="no-underline"
-    >
-      <ItemCard
-        id={product.id}
-        name={product.product_name}
-        stock={product.current_stock}
-        unit={product.unit}
-        price={product.final_price}
-        suppliers={product.supplier_count}
-        category={product.category_name}
-      />
-    </Link>
+      id={product.id}
+      name={product.product_name}
+      stock={product.current_stock}
+      unit={product.unit}
+      price={product.final_price}
+      suppliers={product.supplier_count}
+      category={product.category_name}
+      href={`/dashboard/inventory/${pid}/${product.id}`}
+    />
   ))}
 </div>
           )}
@@ -236,6 +234,9 @@ export default function Inventory() {
 
               <label>Daily Stock Limit</label>
               <input type="number" name="daily_limit" placeholder="Enter daily limit" min="0" step="0.01" />
+
+              <label>Final Price</label>
+              <input type="number" name="final_price" placeholder="Enter final price" min="0" step="0.01" />
 
               <div className="form-actions">
                 <button type="submit">Add Product</button>

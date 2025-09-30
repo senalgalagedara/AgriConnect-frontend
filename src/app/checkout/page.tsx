@@ -1,123 +1,100 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { CreditCard, Truck, ArrowLeft } from 'lucide-react';
 import Navbar from '../../components/NavbarHome';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:5000/api';
-// IMPORTANT: use your real logged-in user's id (UUID if your DB uses uuid)
-const USER_ID = '02a6e5c3-67f3-463c-aebd-3c1a38d7466b';
+const USER_ID = '1';
 
 type CartItem = {
-  id: number;          // cart_items.id
-  product_id: number;  // products.id
+  id: string | number;     
+  product_id?: number;     
   name: string;
   price: number;
   qty: number;
+  unit?: string;
 };
 
 type Totals = { subtotal: number; tax: number; shippingFee: number; total: number };
 
 type ContactDetails = {
-=======
-interface CartItem {
-  id: string;
-  name: string;
-  price: number;
-  qty: number;
-  unit?: string;
-}
-
-interface ContactDetails {
   firstName: string;
   lastName: string;
   email: string;
   phone: string;
-}
+};
 
 type ShippingDetails = {
-=======
-interface ShippingDetails {
   house: string;
   address: string;
   city: string;
   state: string;
   postalCode: string;
   landmark?: string;
-  sameAsBilling: boolean;
-}
+  sameAsBilling?: boolean;
+};
 
 type CheckoutData = {
-  cart: { id: string; name: string; price: number; qty: number }[]; // from previous step (if present)
+  cart: CartItem[];
   contact: ContactDetails;
   shipping: ShippingDetails;
   totals: Totals;
 };
 
-export default function PaymentPage() {
+type OrderResponse = {
+  order: { id: string | number };
+  items: CartItem[];
+};
+
+type PaymentResponse = {
+  invoice: {
+    orderId: string;
+    customerName: string;
+    email: string;
+    total: number;
+    createdAt: string;
+  };
+};
+
+/* ===================== Component ===================== */
+export default function CheckoutPage() {
   const router = useRouter();
 
-  // Summary pulled from backend
+  // Backend cart + totals
   const [items, setItems] = useState<CartItem[]>([]);
   const [totals, setTotals] = useState<Totals>({ subtotal: 0, tax: 0, shippingFee: 0, total: 0 });
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
-  // Data from shipping step (kept so we can send contact+shipping to backend at checkout)
+  // Data saved from the shipping step (localStorage)
   const [checkout, setCheckout] = useState<CheckoutData | null>(null);
 
-  const [method, setMethod] = useState<'COD' | 'CARD'>('COD');
-  const [card, setCard] = useState({ number: '', mmYY: '', cvv: '' });
-  const disablePay = useMemo(() => (method === 'COD' ? false : !(card.number && card.mmYY && card.cvv)), [method, card]);
-interface CheckoutData {
-  cart: CartItem[];
-  contact: ContactDetails;
-  shipping: ShippingDetails;
-  totals: {
-    subtotal: number;
-    tax: number;
-    shippingFee: number;
-    total: number;
-  };
-}
-
-interface Transaction {
-  id: string;
-  customerName: string;
-  email: string;
-  total: number;
-  paymentMethod: 'COD' | 'CARD';
-  createdAt: string;
-  items: CartItem[];
-}
-
-const API_BASE_URL = "http://localhost:5000/api";
-const USER_ID = 1; // Demo user ID
-
-export default function CheckoutPage() {
-  const router = useRouter();
-  
-  const [checkoutData, setCheckoutData] = useState<CheckoutData | null>(null);
+  // Payment state
   const [paymentMethod, setPaymentMethod] = useState<'COD' | 'CARD'>('COD');
-  const [cardDetails, setCardDetails] = useState({
-    number: '',
-    expiry: '',
-    cvv: '',
-    name: ''
-  });
+  const [cardDetails, setCardDetails] = useState({ name: '', number: '', expiry: '', cvv: '' });
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Load backend cart + (optional) shipping step payload
+  // -------- Load backend cart and checkout payload --------
   useEffect(() => {
     (async () => {
       try {
         setLoading(true);
+        setErr(null);
         const r = await fetch(`${API_BASE}/cart/${USER_ID}`, { cache: 'no-store' });
         const data = await r.json();
+        // Expecting shape: { items: CartItem[], totals: Totals }
         setItems(Array.isArray(data?.items) ? data.items : []);
-        setTotals(data?.totals ?? { subtotal: 0, tax: 0, shippingFee: 0, total: 0 });
+        setTotals(
+          data?.totals ?? {
+            subtotal: 0,
+            tax: 0,
+            shippingFee: 0,
+            total: 0,
+          }
+        );
       } catch (e: any) {
         setErr(e?.message || 'Failed to load cart');
       } finally {
@@ -125,24 +102,73 @@ export default function CheckoutPage() {
       }
     })();
 
-    // If your shipping page saved contact+shipping, read it:
+    // Load client-side checkout (contact + shipping + maybe cart mirror)
     try {
       const raw = localStorage.getItem('checkout');
-      if (raw) setCheckout(JSON.parse(raw));
+      if (raw) {
+        const parsed: CheckoutData = JSON.parse(raw);
+        setCheckout(parsed);
+      } else {
+        // If you require the shipping step, bounce them back
+        // router.push('/cart'); // uncomment if you want to force going back
+      }
     } catch {
-      /* ignore */
+      // ignore parse errors
     }
   }, []);
 
-  const onPay = async () => {
-    try {
-      if (!checkout?.contact || !checkout?.shipping) {
-        alert('Missing contact/shipping details from the previous step.');
-        return;
-      }
+  // Basic card validation
+  const isFormValid = () => {
+    if (paymentMethod === 'COD') return true;
+    const numOk = /^\d{16}$/.test(cardDetails.number);
+    const cvvOk = /^\d{3}$/.test(cardDetails.cvv);
+    const expOk = /^(0[1-9]|1[0-2])\/\d{2}$/.test(cardDetails.expiry);
+    return !!cardDetails.name && numOk && cvvOk && expOk;
+  };
 
-      // Create order in DB from the active cart + provided details
-      const res = await fetch(`${API_BASE}/orders/checkout`, {
+  const disablePay = useMemo(
+    () => (paymentMethod === 'COD' ? false : !isFormValid()),
+    [paymentMethod, cardDetails]
+  );
+
+  const getProductEmoji = (name: string) => {
+    const n = name.toLowerCase();
+    if (n.includes('corn')) return '🌽';
+    if (n.includes('chili') || n.includes('pepper')) return '🌶️';
+    if (n.includes('tomato')) return '🍅';
+    if (n.includes('carrot')) return '🥕';
+    if (n.includes('onion')) return '🧅';
+    if (n.includes('potato')) return '🥔';
+    if (n.includes('apple')) return '🍎';
+    if (n.includes('banana')) return '🍌';
+    return '🥬';
+  };
+
+  // Choose which totals to display: prefer backend totals; fall back to checkout.totals
+  const displayTotals: Totals = useMemo(() => {
+    if (totals && (totals.total ?? 0) > 0) return totals;
+    return checkout?.totals ?? { subtotal: 0, tax: 0, shippingFee: 0, total: 0 };
+  }, [totals, checkout]);
+
+  const visibleItems: CartItem[] = useMemo(() => {
+    // Prefer backend items; fall back to checkout mirror
+    return items.length ? items : checkout?.cart ?? [];
+  }, [items, checkout]);
+
+  // -------- Place order / Pay --------
+  const processPayment = async () => {
+    if (!checkout?.contact || !checkout?.shipping) {
+      setError('Missing contact or shipping info from the previous step.');
+      return;
+    }
+    if (paymentMethod === 'CARD' && !isFormValid()) return;
+
+    setProcessing(true);
+    setError(null);
+
+    try {
+      // Step 1: Create order in backend
+      const orderRes = await fetch(`${API_BASE}/orders/checkout`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -152,239 +178,71 @@ export default function CheckoutPage() {
         }),
       });
 
-      if (!res.ok) {
-        const text = await res.text();
-        alert(`Checkout failed: ${text}`);
-        return;
+      if (!orderRes.ok) {
+        const t = await orderRes.text();
+        throw new Error(t || 'Failed to create order');
       }
 
-      const order = await res.json(); // { order, items }
-      // If you later add a payment capture endpoint, call it here
-      // e.g. POST /api/orders/:id/pay with { method, card_last4 }
+      const orderData: OrderResponse = await orderRes.json();
 
-      // Redirect to an order page (or your invoice page)
-      router.push(`/order/${order.order.id}`);
-    } catch (e: any) {
-      alert(`Checkout failed: ${e?.message || 'Unknown error'}`);
-    }
-  };
+      // Step 2: (Optional) Capture payment
+      // If your backend supports card payments, call it; otherwise for COD you can skip.
+      if (paymentMethod === 'CARD') {
+        const payRes = await fetch(`${API_BASE}/payments/pay`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orderId: orderData.order.id,
+            method: 'CARD',
+            cardNumber: cardDetails.number,
+            cardLast4: cardDetails.number.slice(-4),
+          }),
+        });
 
-  return (
-    <div className="page">
-      {/* LEFT: Summary */}
-      <div>
-        <div className="stepper">
-          <span className="step">Shipping</span>
-          <span className="sep">—</span>
-          <span className="step-active">Payment</span>
-        </div>
+        if (!payRes.ok) {
+          const t = await payRes.text();
+          throw new Error(t || 'Payment failed');
+        }
 
-        <h2 className="title">Order Summary</h2>
+        const paymentData: PaymentResponse = await payRes.json();
 
-        {loading && <div className="card">Loading cart…</div>}
-        {err && <div className="card error">Error: {err}</div>}
+        // Save a simple invoice/transaction locally (optional)
+        const transaction = {
+          id: paymentData.invoice.orderId,
+          customerName: paymentData.invoice.customerName,
+          email: paymentData.invoice.email,
+          total: paymentData.invoice.total,
+          paymentMethod: 'CARD' as const,
+          createdAt: paymentData.invoice.createdAt,
+          items: visibleItems,
+        };
 
-        {!loading && !err && (
-          <>
-            {items.length === 0 && <div className="card">Your cart is empty.</div>}
-
-            {items.map((item) => (
-              <div key={item.id} className="order-item">
-                <div className="order-left">
-                  <div className="thumb" aria-hidden>🥬</div>
-                  <div>
-                    <div className="name">{item.name}</div>
-                    <div className="muted">Qty: {item.qty}</div>
-                  </div>
-                </div>
-                <div className="price">${(Number(item.price) * item.qty).toFixed(2)}</div>
-              </div>
-            ))}
-
-            <div className="card">
-              <div className="row"><span className="muted">Subtotal</span><span>${totals.subtotal.toFixed(2)}</span></div>
-              <div className="row"><span className="muted">Sales tax (6.5%)</span><span>${totals.tax.toFixed(2)}</span></div>
-              <div className="row"><span className="muted">Shipping Fee</span><span>{totals.shippingFee ? `$${totals.shippingFee.toFixed(2)}` : 'FREE'}</span></div>
-              <div className="total">
-                <span className="total-label">Total due</span>
-                <span className="total-value">${totals.total.toFixed(2)}</span>
-              </div>
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* RIGHT: Payment */}
-      <div>
-        <div className="card">
-          <h3 className="subtitle">Payment Methods</h3>
-
-          <label className="radio">
-            <input type="radio" name="pay" checked={method === 'COD'} onChange={() => setMethod('COD')} />
-            <div>
-              <div className="radio-title">Pay on Delivery</div>
-              <div className="muted small">Pay with cash on delivery</div>
-            </div>
-          </label>
-
-          <label className="radio">
-            <input type="radio" name="pay" checked={method === 'CARD'} onChange={() => setMethod('CARD')} />
-            <div className="wfull">
-              <div className="radio-title">Credit/Debit Cards</div>
-              <div className="muted small mb">Pay with your Credit / Debit Card</div>
-
-              <div className="grid">
-                <input
-                  disabled={method !== 'CARD'}
-                  placeholder="Card number"
-                  value={card.number}
-                  onChange={(e) => setCard({ ...card, number: e.target.value })}
-                  className="input"
-                />
-                <div className="grid2">
-                  <input
-                    disabled={method !== 'CARD'}
-                    placeholder="MM / YY"
-                    value={card.mmYY}
-                    onChange={(e) => setCard({ ...card, mmYY: e.target.value })}
-                    className="input"
-                  />
-                  <input
-                    disabled={method !== 'CARD'}
-                    placeholder="CVV"
-                    value={card.cvv}
-                    onChange={(e) => setCard({ ...card, cvv: e.target.value })}
-                    className="input"
-                  />
-                </div>
-              </div>
-            </div>
-          </label>
-
-          <div className="actions">
-            <button className="btn ghost" onClick={() => history.back()}>Back</button>
-            <button className="btn primary" disabled={disablePay} onClick={onPay}>Pay</button>
-
-    const savedCheckout = localStorage.getItem('checkout');
-    if (savedCheckout) {
-      setCheckoutData(JSON.parse(savedCheckout));
-    } else {
-      // Redirect back to cart if no checkout data
-      router.push('/cart');
-    }
-  }, [router]);
-
-  const getProductImage = (name: string) => {
-    const lowerName = name.toLowerCase();
-    if (lowerName.includes('corn')) return '🌽';
-    if (lowerName.includes('chili') || lowerName.includes('pepper')) return '🌶️';
-    if (lowerName.includes('tomato')) return '🍅';
-    if (lowerName.includes('carrot')) return '🥕';
-    if (lowerName.includes('onion')) return '🧅';
-    if (lowerName.includes('potato')) return '🥔';
-    if (lowerName.includes('apple')) return '🍎';
-    if (lowerName.includes('banana')) return '🍌';
-    return '🥬';
-  };
-
-  const isFormValid = () => {
-    if (paymentMethod === 'COD') return true;
-    return cardDetails.number && cardDetails.expiry && cardDetails.cvv && cardDetails.name;
-  };
-
-  const processPayment = async () => {
-    if (!checkoutData || !isFormValid()) return;
-
-    setProcessing(true);
-    setError(null);
-
-    try {
-      // Step 1: Create order
-      const orderResponse = await fetch(`${API_BASE_URL}/orders/checkout`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId: USER_ID,
-          contact: checkoutData.contact,
-          shipping: checkoutData.shipping
-        }),
-      });
-
-      if (!orderResponse.ok) {
-        throw new Error('Failed to create order');
+        const existing = JSON.parse(localStorage.getItem('transactions') || '[]');
+        existing.unshift(transaction);
+        localStorage.setItem('transactions', JSON.stringify(existing));
+        localStorage.setItem('lastInvoice', JSON.stringify(transaction));
       }
 
-      const orderData = await orderResponse.json();
-
-      // Step 2: Process payment
-      const paymentResponse = await fetch(`${API_BASE_URL}/payments/pay`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          orderId: orderData.id,
-          method: paymentMethod,
-          cardNumber: paymentMethod === 'CARD' ? cardDetails.number : undefined
-        }),
-      });
-
-      if (!paymentResponse.ok) {
-        throw new Error('Payment failed');
-      }
-
-      const paymentData = await paymentResponse.json();
-
-      // Step 3: Create transaction record for frontend
-      const transaction: Transaction = {
-        id: paymentData.invoice.orderId,
-        customerName: paymentData.invoice.customerName,
-        email: paymentData.invoice.email,
-        total: paymentData.invoice.total,
-        paymentMethod: paymentMethod,
-        createdAt: paymentData.invoice.createdAt,
-        items: checkoutData.cart
-      };
-
-      // Save transaction records
-      const existingTransactions = JSON.parse(localStorage.getItem('transactions') || '[]');
-      existingTransactions.unshift(transaction);
-      localStorage.setItem('transactions', JSON.stringify(existingTransactions));
-      localStorage.setItem('lastInvoice', JSON.stringify(transaction));
-
-      // Clear cart and checkout data
+      // Clear client cart/checkout mirrors (optional; depends on your app flow)
       localStorage.removeItem('cart');
       localStorage.removeItem('checkout');
 
-      // Redirect to invoice
-      router.push('/invoice');
-
-    } catch (err) {
-      console.error('Payment error:', err);
-      setError(err instanceof Error ? err.message : 'Payment failed. Please try again.');
+      // Step 3: Go to order/invoice page
+      router.push(`/order/${orderData.order.id}`);
+    } catch (e: any) {
+      setError(e?.message ?? 'Checkout failed. Please try again.');
     } finally {
       setProcessing(false);
     }
   };
 
-  if (!checkoutData) {
-    return (
-      <div className="loading-screen">
-        <Navbar cartItemCount={0} />
-        <div className="loading-content">
-          <div className="loading-spinner"></div>
-          <h2>Loading checkout...</h2>
-        </div>
-      </div>
-    );
-  }
+  // -------- Loading fallback when no checkout data yet --------
+  const totalQty = visibleItems.reduce((s, it) => s + (Number(it.qty) || 0), 0);
 
   return (
     <div className="checkout-page">
-      <Navbar cartItemCount={checkoutData.cart.reduce((sum, item) => sum + item.qty, 0)} />
-      
+      <Navbar cartItemCount={totalQty} />
+
       <div className="checkout-container">
         {/* Back Button */}
         <button onClick={() => router.back()} className="back-btn">
@@ -406,77 +264,103 @@ export default function CheckoutPage() {
         </div>
 
         <div className="checkout-grid">
-          {/* Order Summary */}
+          {/* -------- LEFT: Order Summary -------- */}
           <div className="order-summary-section">
             <h2 className="section-title">Order Summary</h2>
-            
-            <div className="order-items">
-              {checkoutData.cart.map((item) => (
-                <div key={item.id} className="order-item">
-                  <div className="item-image">
-                    <span className="item-emoji">{getProductImage(item.name)}</span>
-                  </div>
-                  <div className="item-info">
-                    <h3 className="item-name">{item.name}</h3>
-                    <p className="item-details">Qty: {item.qty} {item.unit || 'kg'}</p>
-                  </div>
-                  <div className="item-price">
-                    Rs. {(item.price * item.qty).toFixed(2)}
-                  </div>
-                </div>
-              ))}
-            </div>
 
-            <div className="order-totals">
-              <div className="total-row">
-                <span>Subtotal</span>
-                <span>Rs. {checkoutData.totals.subtotal.toFixed(2)}</span>
-              </div>
-              <div className="total-row">
-                <span>Tax (6.5%)</span>
-                <span>Rs. {checkoutData.totals.tax.toFixed(2)}</span>
-              </div>
-              <div className="total-row">
-                <span>Shipping</span>
-                <span>{checkoutData.totals.shippingFee > 0 ? `Rs. ${checkoutData.totals.shippingFee.toFixed(2)}` : 'FREE'}</span>
-              </div>
-              <div className="total-row final">
-                <span>Total</span>
-                <span>Rs. {checkoutData.totals.total.toFixed(2)}</span>
-              </div>
-            </div>
-
-            {/* Shipping Info */}
-            <div className="shipping-info">
-              <h3 className="info-title">
-                <Truck size={20} />
-                Delivery Address
-              </h3>
-              <div className="info-content">
-                <p>{checkoutData.contact.firstName} {checkoutData.contact.lastName}</p>
-                <p>{checkoutData.shipping.house}, {checkoutData.shipping.address}</p>
-                <p>{checkoutData.shipping.city}, {checkoutData.shipping.state}</p>
-                <p>{checkoutData.shipping.postalCode}</p>
-                {checkoutData.shipping.landmark && (
-                  <p className="landmark">Near: {checkoutData.shipping.landmark}</p>
-                )}
-                <p className="contact">📞 {checkoutData.contact.phone}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Payment Section */}
-          <div className="payment-section">
-            <h2 className="section-title">Payment Method</h2>
-            
-            {error && (
-              <div className="error-message">
-                {error}
+            {loading && (
+              <div className="order-items">
+                <div className="loading-spinner" />
+                <p className="muted">Loading cart…</p>
               </div>
             )}
 
+            {err && (
+              <div className="error-message">Error loading cart: {err}</div>
+            )}
+
+            {!loading && !err && (
+              <>
+                <div className="order-items">
+                  {visibleItems.length === 0 && <div className="muted">Your cart is empty.</div>}
+                  {visibleItems.map((item) => (
+                    <div key={String(item.id)} className="order-item">
+                      <div className="item-image">
+                        <span className="item-emoji">{getProductEmoji(item.name)}</span>
+                      </div>
+                      <div className="item-info">
+                        <h3 className="item-name">{item.name}</h3>
+                        <p className="item-details">
+                          Qty: {item.qty} {item.unit || 'kg'}
+                        </p>
+                      </div>
+                      <div className="item-price">
+                        Rs. {(Number(item.price) * Number(item.qty)).toFixed(2)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="order-totals">
+                  <div className="total-row">
+                    <span>Subtotal</span>
+                    <span>Rs. {displayTotals.subtotal.toFixed(2)}</span>
+                  </div>
+                  <div className="total-row">
+                    <span>Tax (6.5%)</span>
+                    <span>Rs. {displayTotals.tax.toFixed(2)}</span>
+                  </div>
+                  <div className="total-row">
+                    <span>Shipping</span>
+                    <span>
+                      {displayTotals.shippingFee > 0
+                        ? `Rs. ${displayTotals.shippingFee.toFixed(2)}`
+                        : 'FREE'}
+                    </span>
+                  </div>
+                  <div className="total-row final">
+                    <span>Total</span>
+                    <span>Rs. {displayTotals.total.toFixed(2)}</span>
+                  </div>
+                </div>
+
+                {/* Shipping Info (if we have it) */}
+                {checkout?.shipping && checkout?.contact && (
+                  <div className="shipping-info">
+                    <h3 className="info-title">
+                      <Truck size={20} />
+                      Delivery Address
+                    </h3>
+                    <div className="info-content">
+                      <p>
+                        {checkout.contact.firstName} {checkout.contact.lastName}
+                      </p>
+                      <p>
+                        {checkout.shipping.house}, {checkout.shipping.address}
+                      </p>
+                      <p>
+                        {checkout.shipping.city}, {checkout.shipping.state}
+                      </p>
+                      <p>{checkout.shipping.postalCode}</p>
+                      {checkout.shipping.landmark && (
+                        <p className="landmark">Near: {checkout.shipping.landmark}</p>
+                      )}
+                      <p className="contact">📞 {checkout.contact.phone}</p>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* -------- RIGHT: Payment -------- */}
+          <div className="payment-section">
+            <h2 className="section-title">Payment Method</h2>
+
+            {error && <div className="error-message">{error}</div>}
+
             <div className="payment-methods">
-              {/* Cash on Delivery */}
+              {/* COD */}
               <label className={`payment-method ${paymentMethod === 'COD' ? 'selected' : ''}`}>
                 <input
                   type="radio"
@@ -495,13 +379,13 @@ export default function CheckoutPage() {
                     </div>
                   </div>
                   <div className="method-description">
-                    Pay with cash when your fresh produce is delivered to your doorstep. 
-                    Our delivery partner will collect the payment upon delivery.
+                    Pay with cash when your fresh produce is delivered to your doorstep. Our delivery
+                    partner will collect the payment upon delivery.
                   </div>
                 </div>
               </label>
 
-              {/* Credit/Debit Card */}
+              {/* CARD */}
               <label className={`payment-method ${paymentMethod === 'CARD' ? 'selected' : ''}`}>
                 <input
                   type="radio"
@@ -519,7 +403,7 @@ export default function CheckoutPage() {
                       <p>Pay securely with your card</p>
                     </div>
                   </div>
-                  
+
                   {paymentMethod === 'CARD' && (
                     <div className="card-form">
                       <div className="form-row">
@@ -536,7 +420,12 @@ export default function CheckoutPage() {
                           type="text"
                           placeholder="Card Number"
                           value={cardDetails.number}
-                          onChange={(e) => setCardDetails({ ...cardDetails, number: e.target.value.replace(/\D/g, '') })}
+                          onChange={(e) =>
+                            setCardDetails({
+                              ...cardDetails,
+                              number: e.target.value.replace(/\D/g, '').slice(0, 16),
+                            })
+                          }
                           className="card-input full-width"
                           maxLength={16}
                         />
@@ -547,11 +436,9 @@ export default function CheckoutPage() {
                           placeholder="MM/YY"
                           value={cardDetails.expiry}
                           onChange={(e) => {
-                            let value = e.target.value.replace(/\D/g, '');
-                            if (value.length >= 2) {
-                              value = value.substring(0, 2) + '/' + value.substring(2, 4);
-                            }
-                            setCardDetails({ ...cardDetails, expiry: value });
+                            let v = e.target.value.replace(/\D/g, '').slice(0, 4);
+                            if (v.length >= 3) v = `${v.slice(0, 2)}/${v.slice(2)}`;
+                            setCardDetails({ ...cardDetails, expiry: v });
                           }}
                           className="card-input"
                           maxLength={5}
@@ -560,7 +447,12 @@ export default function CheckoutPage() {
                           type="text"
                           placeholder="CVV"
                           value={cardDetails.cvv}
-                          onChange={(e) => setCardDetails({ ...cardDetails, cvv: e.target.value.replace(/\D/g, '') })}
+                          onChange={(e) =>
+                            setCardDetails({
+                              ...cardDetails,
+                              cvv: e.target.value.replace(/\D/g, '').slice(0, 3),
+                            })
+                          }
                           className="card-input"
                           maxLength={3}
                         />
@@ -571,94 +463,33 @@ export default function CheckoutPage() {
               </label>
             </div>
 
-            {/* Place Order Button */}
+            {/* Place Order */}
             <button
               onClick={processPayment}
-              disabled={processing || !isFormValid()}
+              disabled={processing || disablePay}
               className="place-order-btn"
             >
               {processing ? (
                 <>
-                  <div className="loading-spinner-small"></div>
+                  <div className="loading-spinner-small" />
                   Processing...
                 </>
               ) : (
                 <>
                   {paymentMethod === 'COD' ? 'Place Order' : 'Pay Now'}
-                  <span className="total-amount">Rs. {checkoutData.totals.total.toFixed(2)}</span>
+                  <span className="total-amount">Rs. {displayTotals.total.toFixed(2)}</span>
                 </>
               )}
             </button>
 
             <div className="payment-security">
-              <p className="security-text">
-                🔒 Your payment information is secure and encrypted
-              </p>
+              <p className="security-text">🔒 Your payment information is secure and encrypted</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ---------------- CUSTOM CSS (no Tailwind) ---------------- */}
-      <style jsx>{`
-        :global(html), :global(body) { margin: 0; padding: 0; background: #f9fafb; }
-        .page {
-          min-height: 100vh;
-          max-width: 1200px;
-          margin: 0 auto;
-          padding: 2rem 1rem;
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 2.5rem;
-          font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
-          color: #111827;
-        }
-        @media (max-width: 1024px) { .page { grid-template-columns: 1fr; } }
-
-        .stepper { display: flex; gap: 8px; align-items: center; margin-bottom: 1.25rem; font-size: 0.95rem; }
-        .step { color: #6b7280; }
-        .step-active { color: #047857; font-weight: 600; }
-        .sep { color: #9ca3af; }
-
-        .title { font-size: 1.125rem; font-weight: 500; margin: 0 0 1rem; }
-        .subtitle { margin: 0 0 0.75rem; font-weight: 500; }
-
-        .card { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        .error { border: 1px solid #fecaca; background: #fff1f2; }
-
-        .order-item { background: #fff; border-radius: 12px; padding: 14px 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.06); margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
-        .order-left { display: flex; gap: 12px; align-items: center; }
-        .thumb { width: 48px; height: 48px; border-radius: 8px; background: #ecfdf5; display: flex; align-items: center; justify-content: center; }
-        .name { font-weight: 500; }
-        .muted { color: #6b7280; }
-        .small { font-size: 0.875rem; }
-        .mb { margin-bottom: 10px; }
-        .price { font-weight: 500; }
-
-        .row { display: flex; justify-content: space-between; padding: 6px 0; }
-        .total { display: flex; justify-content: space-between; align-items: center; padding-top: 10px; }
-        .total-label { font-weight: 500; }
-        .total-value { font-weight: 600; color: #047857; }
-
-        .radio { display: flex; gap: 12px; align-items: flex-start; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px; margin-bottom: 12px; cursor: pointer; }
-        .radio input { margin-top: 4px; }
-        .radio-title { font-weight: 500; }
-        .wfull { width: 100%; }
-
-        .grid { display: grid; gap: 10px; }
-        .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-
-        .input { width: 100%; padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 10px; outline: none; }
-        .input:disabled { background: #f3f4f6; }
-        .input:focus { border-color: #047857; }
-
-        .actions { display: flex; justify-content: space-between; align-items: center; margin-top: 1.25rem; }
-        .btn { border: 1px solid transparent; border-radius: 10px; padding: 10px 20px; cursor: pointer; }
-        .btn.primary { background: #047857; color: #fff; }
-        .btn.primary:disabled { opacity: 0.5; cursor: not-allowed; }
-        .btn.primary:hover:not(:disabled) { background: #065f46; }
-        .btn.ghost { background: #fff; border-color: #e5e7eb; color: #374151; }
-        .btn.ghost:hover { background: #f3f4f6; }
+      {/* ---------------- CSS (scoped) ---------------- */}
       <style jsx>{`
         .checkout-page {
           min-height: 100vh;
@@ -689,31 +520,6 @@ export default function CheckoutPage() {
         .back-btn:hover {
           background: #f3f4f6;
           color: #15803d;
-        }
-
-        .loading-screen {
-          min-height: 100vh;
-          display: flex;
-          flex-direction: column;
-        }
-
-        .loading-content {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          text-align: center;
-        }
-
-        .loading-spinner {
-          width: 60px;
-          height: 60px;
-          border: 4px solid #e5e7eb;
-          border-top: 4px solid #15803d;
-          border-radius: 50%;
-          animation: spin 1s linear infinite;
-          margin-bottom: 2rem;
         }
 
         .progress-indicator {
@@ -791,7 +597,7 @@ export default function CheckoutPage() {
           background: white;
           border-radius: 12px;
           padding: 1.5rem;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
           display: flex;
           flex-direction: column;
           gap: 1rem;
@@ -853,7 +659,7 @@ export default function CheckoutPage() {
           background: white;
           border-radius: 12px;
           padding: 1.5rem;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
         }
 
         .total-row {
@@ -881,7 +687,7 @@ export default function CheckoutPage() {
           background: white;
           border-radius: 12px;
           padding: 1.5rem;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
         }
 
         .info-title {
@@ -1039,7 +845,7 @@ export default function CheckoutPage() {
         .place-order-btn:hover:not(:disabled) {
           background: linear-gradient(135deg, #166534, #047857);
           transform: translateY(-2px);
-          box-shadow: 0 4px 15px rgba(21,128,61,0.3);
+          box-shadow: 0 4px 15px rgba(21, 128, 61, 0.3);
         }
 
         .place-order-btn:disabled {
@@ -1047,6 +853,16 @@ export default function CheckoutPage() {
           cursor: not-allowed;
           transform: none;
           box-shadow: none;
+        }
+
+        .loading-spinner {
+          width: 60px;
+          height: 60px;
+          border: 4px solid #e5e7eb;
+          border-top: 4px solid #15803d;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+          margin: 0 auto 1rem;
         }
 
         .loading-spinner-small {
@@ -1074,29 +890,28 @@ export default function CheckoutPage() {
           margin: 0;
         }
 
-        /* Mobile Responsive */
+        .muted {
+          color: #6b7280;
+        }
+
+        /* Mobile */
         @media (max-width: 768px) {
           .checkout-container {
             padding: 1rem;
           }
-
           .checkout-grid {
             grid-template-columns: 1fr;
             gap: 2rem;
           }
-
           .progress-indicator {
             gap: 1rem;
           }
-
           .progress-line {
             max-width: 50px;
           }
-
           .form-row {
             flex-direction: column;
           }
-
           .method-header {
             flex-direction: column;
             align-items: flex-start;
@@ -1105,8 +920,12 @@ export default function CheckoutPage() {
         }
 
         @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
+          0% {
+            transform: rotate(0deg);
+          }
+          100% {
+            transform: rotate(360deg);
+          }
         }
       `}</style>
     </div>
