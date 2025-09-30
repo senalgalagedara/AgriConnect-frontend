@@ -6,10 +6,10 @@ import { CreditCard, Truck, ArrowLeft } from 'lucide-react';
 import Navbar from '../../components/NavbarHome';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:5000/api';
-const USER_ID = '1';
+const USER_ID = 1;
 
 type CartItem = {
-  id: string | number;     
+  id: number;     
   product_id?: number;     
   name: string;
   price: number;
@@ -44,7 +44,7 @@ type CheckoutData = {
 };
 
 type OrderResponse = {
-  order: { id: string | number };
+  order: { id: number };
   items: CartItem[];
 };
 
@@ -171,7 +171,7 @@ export default function CheckoutPage() {
       const orderRes = await fetch(`${API_BASE}/orders/checkout`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+          body: JSON.stringify({
           userId: USER_ID,
           contact: checkout.contact,
           shipping: checkout.shipping,
