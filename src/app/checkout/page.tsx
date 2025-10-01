@@ -6,11 +6,16 @@ import { CreditCard, Truck, ArrowLeft } from 'lucide-react';
 import Navbar from '../../components/NavbarHome';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:5000/api';
-const USER_ID = 1;
+const USER_ID = '1';
+
+const FETCH_CHECKOUT_ENDPOINTS = (userId: string) => [
+  `${API_BASE}/checkout/${userId}`,
+  `${API_BASE}/users/${userId}/checkout`,
+];
 
 type CartItem = {
-  id: number;     
-  product_id?: number;     
+  id: number;
+  product_id?: number;
   name: string;
   price: number;
   qty: number;
@@ -50,7 +55,7 @@ type OrderResponse = {
 
 type PaymentResponse = {
   invoice: {
-    orderId: string;
+    orderId: number;
     customerName: string;
     email: string;
     total: number;
@@ -68,8 +73,11 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
-  // Data saved from the shipping step (localStorage)
-  const [checkout, setCheckout] = useState<CheckoutData | null>(null);
+  // checkout details (prefer backend; fallback to localStorage)
+  const [checkoutBackend, setCheckoutBackend] = useState<Partial<CheckoutData> | null>(null);
+  const [checkoutLocal, setCheckoutLocal] = useState<CheckoutData | null>(null);
+  const [checkoutLoading, setCheckoutLoading] = useState<boolean>(true);
+  const [checkoutErr, setCheckoutErr] = useState<string | null>(null);
 
   // Payment state
   const [paymentMethod, setPaymentMethod] = useState<'COD' | 'CARD'>('COD');
@@ -77,7 +85,6 @@ export default function CheckoutPage() {
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // -------- Load backend cart and checkout payload --------
   useEffect(() => {
     (async () => {
       try {
@@ -85,7 +92,6 @@ export default function CheckoutPage() {
         setErr(null);
         const r = await fetch(`${API_BASE}/cart/${USER_ID}`, { cache: 'no-store' });
         const data = await r.json();
-        // Expecting shape: { items: CartItem[], totals: Totals }
         setItems(Array.isArray(data?.items) ? data.items : []);
         setTotals(
           data?.totals ?? {
@@ -102,20 +108,55 @@ export default function CheckoutPage() {
       }
     })();
 
-    // Load client-side checkout (contact + shipping + maybe cart mirror)
-    try {
-      const raw = localStorage.getItem('checkout');
-      if (raw) {
-        const parsed: CheckoutData = JSON.parse(raw);
-        setCheckout(parsed);
-      } else {
-        // If you require the shipping step, bounce them back
-        // router.push('/cart'); // uncomment if you want to force going back
+    // Load checkout details from backend first, then from localStorage
+    (async () => {
+      setCheckoutLoading(true);
+      setCheckoutErr(null);
+      try {
+        let found: Partial<CheckoutData> | null = null;
+
+        for (const url of FETCH_CHECKOUT_ENDPOINTS(USER_ID)) {
+          try {
+            const res = await fetch(url, { cache: 'no-store' });
+            if (res.ok) {
+              const data = await res.json();
+              if (data?.contact || data?.shipping || data?.totals || data?.cart) {
+                found = data;
+                break;
+              }
+            }
+          } catch {
+            // try next endpoint
+          }
+        }
+
+        if (found) setCheckoutBackend(found);
+
+        // also read from localStorage as a fallback
+        try {
+          const raw = localStorage.getItem('checkout');
+          if (raw) {
+            const parsed: CheckoutData = JSON.parse(raw);
+            setCheckoutLocal(parsed);
+          }
+        } catch {
+          // ignore parse errors
+        }
+
+        if (!found && !localStorage.getItem('checkout')) {
+          setCheckoutErr('No checkout details found. Please complete shipping information.');
+        }
+      } finally {
+        setCheckoutLoading(false);
       }
-    } catch {
-      // ignore parse errors
-    }
+    })();
   }, []);
+
+  // Which checkout data are we actually using?
+  const checkout = useMemo<Partial<CheckoutData> | null>(() => {
+    // prefer backend; else local
+    return checkoutBackend ?? checkoutLocal ?? null;
+  }, [checkoutBackend, checkoutLocal]);
 
   // Basic card validation
   const isFormValid = () => {
@@ -151,9 +192,11 @@ export default function CheckoutPage() {
   }, [totals, checkout]);
 
   const visibleItems: CartItem[] = useMemo(() => {
-    // Prefer backend items; fall back to checkout mirror
     return items.length ? items : checkout?.cart ?? [];
   }, [items, checkout]);
+
+  // Little helper to safely display values
+  const safe = (v?: string) => (v ?? '');
 
   // -------- Place order / Pay --------
   const processPayment = async () => {
@@ -167,14 +210,13 @@ export default function CheckoutPage() {
     setError(null);
 
     try {
-      // Step 1: Create order in backend
       const orderRes = await fetch(`${API_BASE}/orders/checkout`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+        body: JSON.stringify({
           userId: USER_ID,
-          contact: checkout.contact,
-          shipping: checkout.shipping,
+          contact: checkout.contact,   // ✅ now comes from backend (or local fallback)
+          shipping: checkout.shipping, // ✅ now comes from backend (or local fallback)
         }),
       });
 
@@ -185,8 +227,6 @@ export default function CheckoutPage() {
 
       const orderData: OrderResponse = await orderRes.json();
 
-      // Step 2: (Optional) Capture payment
-      // If your backend supports card payments, call it; otherwise for COD you can skip.
       if (paymentMethod === 'CARD') {
         const payRes = await fetch(`${API_BASE}/payments/pay`, {
           method: 'POST',
@@ -206,7 +246,6 @@ export default function CheckoutPage() {
 
         const paymentData: PaymentResponse = await payRes.json();
 
-        // Save a simple invoice/transaction locally (optional)
         const transaction = {
           id: paymentData.invoice.orderId,
           customerName: paymentData.invoice.customerName,
@@ -227,7 +266,6 @@ export default function CheckoutPage() {
       localStorage.removeItem('cart');
       localStorage.removeItem('checkout');
 
-      // Step 3: Go to order/invoice page
       router.push(`/order/${orderData.order.id}`);
     } catch (e: any) {
       setError(e?.message ?? 'Checkout failed. Please try again.');
@@ -236,7 +274,6 @@ export default function CheckoutPage() {
     }
   };
 
-  // -------- Loading fallback when no checkout data yet --------
   const totalQty = visibleItems.reduce((s, it) => s + (Number(it.qty) || 0), 0);
 
   return (
@@ -275,9 +312,7 @@ export default function CheckoutPage() {
               </div>
             )}
 
-            {err && (
-              <div className="error-message">Error loading cart: {err}</div>
-            )}
+            {err && <div className="error-message">Error loading cart: {err}</div>}
 
             {!loading && !err && (
               <>
@@ -324,31 +359,83 @@ export default function CheckoutPage() {
                   </div>
                 </div>
 
-                {/* Shipping Info (if we have it) */}
-                {checkout?.shipping && checkout?.contact && (
-                  <div className="shipping-info">
-                    <h3 className="info-title">
-                      <Truck size={20} />
-                      Delivery Address
-                    </h3>
-                    <div className="info-content">
-                      <p>
-                        {checkout.contact.firstName} {checkout.contact.lastName}
-                      </p>
-                      <p>
-                        {checkout.shipping.house}, {checkout.shipping.address}
-                      </p>
-                      <p>
-                        {checkout.shipping.city}, {checkout.shipping.state}
-                      </p>
-                      <p>{checkout.shipping.postalCode}</p>
-                      {checkout.shipping.landmark && (
-                        <p className="landmark">Near: {checkout.shipping.landmark}</p>
-                      )}
-                      <p className="contact">📞 {checkout.contact.phone}</p>
+                {/* Shipping Info (now with read-only inputs) */}
+                <div className="shipping-info">
+                  <h3 className="info-title">
+                    <Truck size={20} />
+                    Delivery Address
+                  </h3>
+
+                  {checkoutLoading && (
+                    <div className="order-items" style={{ boxShadow: 'none', padding: 0 }}>
+                      <div className="loading-spinner" />
+                      <p className="muted">Loading delivery details…</p>
                     </div>
-                  </div>
-                )}
+                  )}
+
+                  {checkoutErr && <div className="error-message">{checkoutErr}</div>}
+
+                  {!checkoutLoading && (
+                    <div className="info-content">
+                      {/* Contact - Read-only */}
+                      <div className="ro-grid">
+                        <div className="ro-field">
+                          <label>First Name</label>
+                          <input className="ro-input" readOnly value={safe(checkout?.contact?.firstName)} />
+                        </div>
+                        <div className="ro-field">
+                          <label>Last Name</label>
+                          <input className="ro-input" readOnly value={safe(checkout?.contact?.lastName)} />
+                        </div>
+                      </div>
+
+                      <div className="ro-grid">
+                        <div className="ro-field">
+                          <label>Email</label>
+                          <input className="ro-input" readOnly value={safe(checkout?.contact?.email)} />
+                        </div>
+                        <div className="ro-field">
+                          <label>Phone</label>
+                          <input className="ro-input" readOnly value={safe(checkout?.contact?.phone)} />
+                        </div>
+                      </div>
+
+                      {/* Shipping - Read-only */}
+                      <div className="ro-grid">
+                        <div className="ro-field">
+                          <label>House / Apartment</label>
+                          <input className="ro-input" readOnly value={safe(checkout?.shipping?.house)} />
+                        </div>
+                        <div className="ro-field">
+                          <label>Address</label>
+                          <input className="ro-input" readOnly value={safe(checkout?.shipping?.address)} />
+                        </div>
+                      </div>
+
+                      <div className="ro-grid">
+                        <div className="ro-field">
+                          <label>City</label>
+                          <input className="ro-input" readOnly value={safe(checkout?.shipping?.city)} />
+                        </div>
+                        <div className="ro-field">
+                          <label>State</label>
+                          <input className="ro-input" readOnly value={safe(checkout?.shipping?.state)} />
+                        </div>
+                      </div>
+
+                      <div className="ro-grid">
+                        <div className="ro-field">
+                          <label>Postal Code</label>
+                          <input className="ro-input" readOnly value={safe(checkout?.shipping?.postalCode)} />
+                        </div>
+                        <div className="ro-field">
+                          <label>Landmark</label>
+                          <input className="ro-input" readOnly value={safe(checkout?.shipping?.landmark)} />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </>
             )}
           </div>
@@ -705,8 +792,33 @@ export default function CheckoutPage() {
           line-height: 1.6;
         }
 
-        .info-content p {
-          margin: 0.25rem 0;
+        /* 🔒 Read-only input grid */
+        .ro-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 1rem;
+          margin-bottom: 0.75rem;
+        }
+
+        .ro-field label {
+          display: block;
+          font-size: 0.8rem;
+          color: #6b7280;
+          margin-bottom: 0.25rem;
+        }
+
+        .ro-input {
+          width: 100%;
+          padding: 0.75rem;
+          border: 2px solid #e5e7eb;
+          border-radius: 8px;
+          background: #f9fafb;
+          color: #111827;
+        }
+
+        .ro-input[readonly] {
+          cursor: not-allowed;
+          user-select: none;
         }
 
         .landmark {
@@ -917,15 +1029,14 @@ export default function CheckoutPage() {
             align-items: flex-start;
             gap: 0.5rem;
           }
+          .ro-grid {
+            grid-template-columns: 1fr;
+          }
         }
 
         @keyframes spin {
-          0% {
-            transform: rotate(0deg);
-          }
-          100% {
-            transform: rotate(360deg);
-          }
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
         }
       `}</style>
     </div>
