@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 export type CartItem = {
   id: string;
   name: string;
-  price: number;
+  price: number; // per item
   qty: number;
   image?: string;
 };
@@ -40,25 +40,20 @@ export type CheckoutData = {
   };
 };
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-
+export type Transaction = {
+  id: string; // order id
+  customerName: string;
+  email: string;
+  total: number;
+  paymentMethod: 'COD' | 'CARD';
+  createdAt: string; // ISO
+  items: CartItem[];
+};
 export default function PaymentPage() {
   const router = useRouter();
   const [data, setData] = useState<CheckoutData | null>(null);
   const [method, setMethod] = useState<'COD' | 'CARD'>('COD');
   const [card, setCard] = useState({ number: '', mmYY: '', cvv: '' });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // Get userId from localStorage or your auth system
-  const getUserId = () => {
-    // Replace this with your actual auth logic
-    const user = localStorage.getItem('user');
-    if (user) {
-      return JSON.parse(user).id;
-    }
-    return '1'; // Default for testing
-  };
 
   useEffect(() => {
     const chk = localStorage.getItem('checkout');
@@ -70,79 +65,37 @@ export default function PaymentPage() {
     return !(card.number && card.mmYY && card.cvv);
   }, [method, card]);
 
-  const onPay = async () => {
+  const disablePay = useMemo(() => {
+    if (method === 'COD') return false;
+    return !(card.number && card.mmYY && card.cvv);
+  }, [method, card]);
+
+  const onPay = () => {
     if (!data) return;
 
-    setLoading(true);
-    setError(null);
+    // Create a transaction + "invoice"
+    const orderId = Math.floor(100000000 + Math.random() * 900000000).toString();
+    const tx: Transaction = {
+      id: orderId,
+      customerName: `${data.contact.firstName} ${data.contact.lastName}`.trim(),
+      email: data.contact.email,
+      total: data.totals.total,
+      paymentMethod: method,
+      createdAt: new Date().toISOString(),
+      items: data.cart,
+    };
 
-    try {
-      const userId = getUserId();
+    // save for invoice + manager
+    const all = JSON.parse(localStorage.getItem('transactions') || '[]') as Transaction[];
+    all.unshift(tx);
+    localStorage.setItem('transactions', JSON.stringify(all));
+    localStorage.setItem('lastInvoice', JSON.stringify(tx));
 
-      // Create order via API
-      const response = await fetch(`${API_BASE}/orders/${userId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contact: data.contact,
-          shipping: data.shipping,
-          paymentMethod: method,
-        }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.message || 'Failed to create order');
-      }
-
-      if (result.success && result.data) {
-        // Save order details for invoice page
-        const orderData = {
-          id: result.data.order_no,
-          customerName: `${data.contact.firstName} ${data.contact.lastName}`.trim(),
-          email: data.contact.email,
-          total: data.totals.total,
-          paymentMethod: method,
-          createdAt: result.data.created_at,
-          items: data.cart,
-        };
-
-        // Store last invoice for display
-        localStorage.setItem('lastInvoice', JSON.stringify(orderData));
-
-        // Clear checkout data
-        localStorage.removeItem('checkout');
-
-        // Navigate to invoice/success page
-        router.push('/invoice');
-      } else {
-        throw new Error('Invalid response from server');
-      }
-    } catch (err) {
-      console.error('Error creating order:', err);
-      setError(err instanceof Error ? err.message : 'Failed to create order. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+    router.push('/invoice');
   };
 
   if (!data) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-gray-500 mb-4">No checkout data found.</div>
-          <button
-            onClick={() => router.push('/cart')}
-            className="rounded-lg bg-green-700 px-6 py-2 text-white hover:bg-green-800"
-          >
-            Go to Cart
-          </button>
-        </div>
-      </div>
-    );
+    return <div className="p-8 text-gray-500">No checkout data. Go back to the cart.</div>;
   }
 
   const { cart, totals } = data;
@@ -187,12 +140,6 @@ export default function PaymentPage() {
 
         {/* Right: Payment methods */}
         <div className="space-y-6">
-          {error && (
-            <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-red-700">
-              {error}
-            </div>
-          )}
-
           <section className="rounded-xl bg-white p-6 shadow-sm">
             <h3 className="font-medium mb-4">Payment Methods</h3>
 
@@ -203,7 +150,6 @@ export default function PaymentPage() {
                 checked={method === 'COD'}
                 onChange={() => setMethod('COD')}
                 className="mt-1"
-                disabled={loading}
               />
               <div>
                 <div className="font-medium">Pay on Delivery</div>
@@ -218,7 +164,6 @@ export default function PaymentPage() {
                 checked={method === 'CARD'}
                 onChange={() => setMethod('CARD')}
                 className="mt-1"
-                disabled={loading}
               />
               <div className="w-full">
                 <div className="font-medium">Credit/Debit Cards</div>
@@ -226,7 +171,7 @@ export default function PaymentPage() {
 
                 <div className="grid grid-cols-1 gap-3">
                   <input
-                    disabled={method !== 'CARD' || loading}
+                    disabled={method !== 'CARD'}
                     placeholder="Card number"
                     value={card.number}
                     onChange={(e) => setCard({ ...card, number: e.target.value })}
@@ -234,14 +179,14 @@ export default function PaymentPage() {
                   />
                   <div className="grid grid-cols-2 gap-3">
                     <input
-                      disabled={method !== 'CARD' || loading}
+                      disabled={method !== 'CARD'}
                       placeholder="MM / YY"
                       value={card.mmYY}
                       onChange={(e) => setCard({ ...card, mmYY: e.target.value })}
                       className="w-full rounded-lg border border-gray-200 px-3 py-2 outline-none disabled:bg-gray-50"
                     />
                     <input
-                      disabled={method !== 'CARD' || loading}
+                      disabled={method !== 'CARD'}
                       placeholder="CVV"
                       value={card.cvv}
                       onChange={(e) => setCard({ ...card, cvv: e.target.value })}
@@ -255,27 +200,16 @@ export default function PaymentPage() {
             <div className="mt-8 flex items-center justify-between">
               <button
                 onClick={() => history.back()}
-                disabled={loading}
-                className="rounded-lg border px-6 py-2 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                className="rounded-lg border px-6 py-2 text-gray-700 hover:bg-gray-50"
               >
                 Back
               </button>
               <button
-                disabled={disablePay || loading}
+                disabled={disablePay}
                 onClick={onPay}
-                className="rounded-lg bg-green-700 px-8 py-2 text-white hover:bg-green-800 disabled:opacity-50 flex items-center gap-2"
+                className="rounded-lg bg-green-700 px-8 py-2 text-white hover:bg-green-800 disabled:opacity-50"
               >
-                {loading ? (
-                  <>
-                    <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    Processing...
-                  </>
-                ) : (
-                  'Pay'
-                )}
+                Pay
               </button>
             </div>
           </section>

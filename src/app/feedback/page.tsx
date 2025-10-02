@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { useFeedback } from "@feedback/FeedbackContext";
+import { useFeedback } from "@/components/FeedbackContext";
 
 // Demo page to manually trigger the feedback modal in different configurations
 export default function FeedbackDemoPage() {
