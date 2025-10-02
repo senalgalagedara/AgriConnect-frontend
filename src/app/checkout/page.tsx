@@ -12,7 +12,7 @@ export type CartItem = {
 };
 
 export type ContactDetails = {
-  firstName: string;
+  firstName : string;
   lastName: string;
   email: string;
   phone: string;
@@ -49,6 +49,7 @@ export type Transaction = {
   createdAt: string; // ISO
   items: CartItem[];
 };
+
 export default function PaymentPage() {
   const router = useRouter();
   const [data, setData] = useState<CheckoutData | null>(null);
@@ -56,8 +57,12 @@ export default function PaymentPage() {
   const [card, setCard] = useState({ number: '', mmYY: '', cvv: '' });
 
   useEffect(() => {
-    const chk = localStorage.getItem('checkout');
-    if (chk) setData(JSON.parse(chk));
+    try {
+      const chk = localStorage.getItem('checkout');
+      if (chk) setData(JSON.parse(chk));
+    } catch {
+      setData(null);
+    }
   }, []);
 
   const disablePay = useMemo(() => {
@@ -194,7 +199,7 @@ export default function PaymentPage() {
 
             <div className="mt-8 flex items-center justify-between">
               <button
-                onClick={() => history.back()}
+                onClick={() => router.back()}
                 className="rounded-lg border px-6 py-2 text-gray-700 hover:bg-gray-50"
               >
                 Back

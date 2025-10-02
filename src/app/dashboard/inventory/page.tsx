@@ -107,7 +107,7 @@ export default function Home() {
                                 currentStock={safeNumber(province.total_current_stock)}
                                 capacity={safeNumber(province.capacity)}
                                 href={`/dashboard/inventory/${province.id}`}
-                                isActive={province.name === "Western Province"}
+                                isActive={true}
                             />
                         ))}
                     </div>
