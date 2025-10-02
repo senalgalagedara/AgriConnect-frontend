@@ -103,11 +103,11 @@ export default function OrderListPage() {
                 </div>
                 <div>
                   <label className="block text-xs text-gray-600">Customer</label>
-                  <input value={assigningOrder.customerName} readOnly className="mt-1 w-full rounded-md border-gray-300 bg-gray-50 px-3 py-2 text-sm" />
+                  <input value={[assigningOrder.contact?.firstName, assigningOrder.contact?.lastName].filter(Boolean).join(' ')} readOnly className="mt-1 w-full rounded-md border-gray-300 bg-gray-50 px-3 py-2 text-sm" />
                 </div>
                 <div className="col-span-2">
                   <label className="block text-xs text-gray-600">Address</label>
-                  <input value={assigningOrder.address} readOnly className="mt-1 w-full rounded-md border-gray-300 bg-gray-50 px-3 py-2 text-sm" />
+                  <input value={assigningOrder.shipping?.address ?? ''} readOnly className="mt-1 w-full rounded-md border-gray-300 bg-gray-50 px-3 py-2 text-sm" />
                 </div>
                 <div>
                   <label className="block text-xs text-gray-600">Driver ID</label>

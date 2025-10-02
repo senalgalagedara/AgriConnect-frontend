@@ -1,7 +1,7 @@
 // Simple API helper with mock fallback
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000'
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'
 
 export async function apiRequest<T>(path: string, options: { method?: HttpMethod; body?: any; query?: Record<string, any> } = {}): Promise<T> {
   const qs = options.query ? `?${new URLSearchParams(Object.entries(options.query).reduce((acc, [k, v]) => {
