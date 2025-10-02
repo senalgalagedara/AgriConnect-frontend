@@ -1,8 +1,7 @@
-"use client";
+'use client';
 
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import { apiRequest } from "../../lib/api";
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 export type CartItem = {
   id: string;
@@ -13,7 +12,7 @@ export type CartItem = {
 };
 
 export type ContactDetails = {
-  firstName: string;
+  firstName : string;
   lastName: string;
   email: string;
   phone: string;
@@ -56,7 +55,6 @@ export default function PaymentPage() {
   const [data, setData] = useState<CheckoutData | null>(null);
   const [method, setMethod] = useState<'COD' | 'CARD'>('COD');
   const [card, setCard] = useState({ number: '', mmYY: '', cvv: '' });
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     try {
@@ -72,100 +70,28 @@ export default function PaymentPage() {
     return !(card.number && card.mmYY && card.cvv);
   }, [method, card]);
 
-  const onPay = async () => {
+  const onPay = () => {
     if (!data) return;
-    setLoading(true);
 
-    // try to obtain a userId from localStorage; if not present, default to 1
-    // (assumption: backend requires a positive integer userId)
-    const userId = Number(localStorage.getItem('userId') || '1');
-
-    // Map shipping details to backend shape
-    const shippingPayload = {
-      address: data.shipping.address || data.shipping.house || '',
-      city: data.shipping.city,
-      state: data.shipping.state,
-      postalCode: data.shipping.postalCode,
-      landmark: data.shipping.landmark || undefined,
-    };
-
-    // Prepare cart items in a minimal shape the backend can consume
-    const items = data.cart.map((it) => ({
-      productId: Number(it.id) || undefined,
-      name: it.name,
-      price: it.price,
-      qty: it.qty,
-    }));
-
-    const payload = {
-      userId,
-      contact: data.contact,
-      shipping: shippingPayload,
+    // Create a transaction + "invoice"
+    const orderId = Math.floor(100000000 + Math.random() * 900000000).toString();
+    const tx: Transaction = {
+      id: orderId,
+      customerName: `${data.contact.firstName} ${data.contact.lastName}`.trim(),
+      email: data.contact.email,
+      total: data.totals.total,
       paymentMethod: method,
-      items,
-      totals: data.totals,
+      createdAt: new Date().toISOString(),
+      items: data.cart,
     };
 
-    try {
-      // Call the checkout endpoint on the backend
-      const orderResp = await apiRequest<any>(`/orders/checkout`, { method: 'POST', body: payload });
+    // save for invoice + manager
+    const all = JSON.parse(localStorage.getItem('transactions') || '[]') as Transaction[];
+    all.unshift(tx);
+    localStorage.setItem('transactions', JSON.stringify(all));
+    localStorage.setItem('lastInvoice', JSON.stringify(tx));
 
-      // Try to robustly extract an order id from the response
-      let orderId: number | string | null = null;
-      if (orderResp == null) {
-        throw new Error('Empty response from server');
-      }
-      if (typeof orderResp === 'object') {
-        orderId = orderResp.id ?? orderResp.order_no ?? orderResp.orderId ?? null;
-      } else if (typeof orderResp === 'number' || typeof orderResp === 'string') {
-        orderId = orderResp;
-      }
-
-      // If card payment chosen, call the payments endpoint
-      if (method === 'CARD') {
-        if (!orderId) throw new Error('Order id missing for payment');
-        // Send minimal card data; backend will validate and sanitize
-        await apiRequest<any>('/payments/pay', {
-          method: 'POST',
-          body: {
-            orderId: Number(orderId),
-            method: 'CARD',
-            cardNumber: String(card.number).replace(/[^0-9]/g, ''),
-          },
-        });
-      }
-
-      // Build a small transaction object for invoice display
-      const orderIdentifier = orderId != null
-        ? String(orderId)
-        : (typeof crypto !== 'undefined' && typeof (crypto as any).randomUUID === 'function')
-          ? (crypto as any).randomUUID()
-          : String(Math.floor(100000000 + Math.random() * 900000000));
-      const tx: Transaction = {
-        id: orderIdentifier,
-        customerName: `${data.contact.firstName} ${data.contact.lastName}`.trim(),
-        email: data.contact.email,
-        total: data.totals.total,
-        paymentMethod: method,
-        createdAt: new Date().toISOString(),
-        items: data.cart,
-      };
-
-      // keep local copy for invoice page and transaction history (non-authoritative)
-      const all = JSON.parse(localStorage.getItem('transactions') || '[]') as Transaction[];
-      all.unshift(tx);
-      localStorage.setItem('transactions', JSON.stringify(all));
-      localStorage.setItem('lastInvoice', JSON.stringify(tx));
-
-      router.push('/invoice');
-    } catch (err: any) {
-      // surface backend validation/messages
-      const msg = err?.message || 'Checkout failed';
-      // keep it simple for now; a proper UI toast would be nicer
-      alert(`Checkout failed: ${msg}`);
-    } finally {
-      setLoading(false);
-    }
+    router.push('/invoice');
   };
 
   if (!data) {
