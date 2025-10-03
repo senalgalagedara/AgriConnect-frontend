@@ -5,9 +5,11 @@ import UserCard from './UserCard';
 
 interface UserListProps {
   users: User[];
+  onEdit?: (user: User) => void;
+  onDelete?: (user: User) => void;
 }
 
-const UserList = ({ users }: UserListProps) => {
+const UserList = ({ users, onEdit, onDelete }: UserListProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all');
 
@@ -103,7 +105,7 @@ const UserList = ({ users }: UserListProps) => {
       ) : (
         <div style={gridStyle}>
           {filteredUsers.map((user) => (
-            <UserCard key={user.id} user={user} />
+            <UserCard key={user.id} user={user} onEdit={onEdit} onDelete={onDelete} />
           ))}
         </div>
       )}
