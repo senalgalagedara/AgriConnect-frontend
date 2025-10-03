@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Sidebar from '../../../../components/sidebar';
 import NavbarHome from '../../../../components/NavbarHome';
+import Modal from '../../../../components/Modal';
 
 type Row = {
   assignmentId: number;
@@ -19,6 +20,11 @@ export default function AssignmentsPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  // modal state
+  const [editOpen, setEditOpen] = useState(false);
+  const [editing, setEditing] = useState<Row | null>(null);
+  const [editNotes, setEditNotes] = useState('');
+  const [editSchedule, setEditSchedule] = useState('');
 
   useEffect(() => {
     (async () => {
@@ -65,6 +71,7 @@ export default function AssignmentsPage() {
                     <th>Customer</th>
                     <th>Address</th>
                     <th>Schedule</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -76,6 +83,31 @@ export default function AssignmentsPage() {
                       <td>{r.customerName}</td>
                       <td className="small muted">{r.address}</td>
                       <td><span className={`badge ${r.scheduleStatus.replace(/\s+/g,'').toLowerCase()}`}>{r.scheduleStatus}</span></td>
+                      <td className="small">
+                        <button
+                          className="btnEdit"
+                          onClick={() => {
+                            setEditing(r);
+                            setEditNotes('');
+                            setEditSchedule('');
+                            setEditOpen(true);
+                          }}
+                        >Edit</button>
+                        <button
+                          className="btnDelete"
+                          onClick={async () => {
+                            if (!confirm('Delete this assignment?')) return;
+                            try {
+                              const res = await fetch(`${API_BASE}/assignments/${r.assignmentId}`, { method: 'DELETE' });
+                              const j = await res.json();
+                              if (!res.ok) throw new Error(j?.error ?? j?.message ?? 'Delete failed');
+                              setRows(prev => prev.filter(x => x.assignmentId !== r.assignmentId));
+                            } catch (e: any) {
+                              alert(e.message ?? 'Failed to delete');
+                            }
+                          }}
+                        >Delete</button>
+                      </td>
                     </tr>
                   ))}
                   {rows.length === 0 && (
@@ -85,6 +117,46 @@ export default function AssignmentsPage() {
               </table>
             </div>
           )}
+
+          <Modal show={editOpen} title={`Edit Assignment #${editing?.assignmentId ?? ''}`} onClose={() => setEditOpen(false)}>
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              if (!editing) return;
+              try {
+                setLoading(true);
+                const res = await fetch(`${API_BASE}/assignments/${editing.assignmentId}`, {
+                  method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ notes: editNotes, schedule_time: editSchedule })
+                });
+                const j = await res.json();
+                if (!res.ok) throw new Error(j?.error ?? j?.message ?? 'Update failed');
+                // refresh
+                const rr = await fetch(`${API_BASE}/assignments`, { cache: 'no-store' });
+                const pl = await rr.json();
+                const rows = Array.isArray(pl) ? pl : pl?.data ?? [];
+                setRows(rows.map((r2: any) => ({
+                  assignmentId: r2.id,
+                  orderId: r2.order_id,
+                  driverId: r2.driver_id,
+                  customerName: r2.customer_name,
+                  address: r2.customer_address,
+                  scheduleStatus: (r2.status || 'Scheduled').replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()),
+                })));
+                setEditOpen(false);
+              } catch (e: any) { alert(e.message ?? 'Failed to update'); }
+              finally { setLoading(false); }
+            }}>
+              <div style={{ display: 'grid', gap: 8 }}>
+                <label>Notes</label>
+                <textarea value={editNotes} onChange={(e) => setEditNotes((e.target as HTMLTextAreaElement).value)} rows={4} />
+                <label>Schedule (ISO)</label>
+                <input value={editSchedule} onChange={(e) => setEditSchedule((e.target as HTMLInputElement).value)} />
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                  <button type="button" className="btn outline" onClick={() => setEditOpen(false)}>Cancel</button>
+                  <button type="submit" className="btn primary">Save</button>
+                </div>
+              </div>
+            </form>
+          </Modal>
 
         </main>
       </div>

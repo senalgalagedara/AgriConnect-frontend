@@ -153,6 +153,25 @@ export default function AssignDriverPage() {
                         >
                           Assign
                         </button>
+                         <div className="driverActions">
+                           <button
+                             className="btn outline"
+                             onClick={async () => {
+                               // Quick create assignment with empty schedule/notes
+                               if (!confirm(`Create assignment for driver ${d.name}?`)) return;
+                               try {
+                                 const res = await fetch(`${API_BASE}/assignments`, {
+                                   method: 'POST',
+                                   headers: { 'Content-Type': 'application/json' },
+                                   body: JSON.stringify({ order_id: order?.id ?? id, driver_id: d.id })
+                                 });
+                                 const j = await res.json();
+                                 if (!res.ok) throw new Error(j?.error ?? j?.message ?? 'Create failed');
+                                 alert('Assignment created');
+                               } catch (e: any) { alert(e.message ?? 'Failed'); }
+                             }}
+                           >Quick Assign</button>
+                         </div>
                       </td>
                     </tr>
                   );
