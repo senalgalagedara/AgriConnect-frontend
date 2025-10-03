@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Star, ShoppingCart, Plus, Minus, ArrowLeft, Truck, Shield, Leaf, Users } from 'lucide-react';
+import Image from 'next/image';
+import { Star, ShoppingCart, Plus, Minus, ArrowLeft, Truck, Shield, Leaf, Users, ImageOff } from 'lucide-react';
 import Navbar from '../../../components/NavbarHome';
 
 interface ProductDetail {
@@ -19,6 +20,7 @@ interface ProductDetail {
   daily_limit: number;
   created_at: string;
   updated_at: string;
+  image_url?: string | null;   // <-- NEW
 }
 
 // Reflect possible API shapes, then normalize into ProductDetail
@@ -35,6 +37,7 @@ type ProductDetailRaw = {
   daily_limit?: number | string | null;
   created_at?: string | null;
   updated_at?: string | null;
+  image_url?: string | null;   // <-- NEW
 };
 
 interface CartItem {
@@ -54,6 +57,14 @@ function toNum(v: unknown, fallback = 0): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function slugify(name: string) {
+  return name
+    .toLowerCase()
+    .replace(/&/g, 'and')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)+/g, '');
+}
+
 function normalizeProduct(raw: ProductDetailRaw): ProductDetail {
   return {
     id: toNum(raw.id, 0),
@@ -68,6 +79,7 @@ function normalizeProduct(raw: ProductDetailRaw): ProductDetail {
     daily_limit: toNum(raw.daily_limit, 0),
     created_at: String(raw.created_at ?? ''),
     updated_at: String(raw.updated_at ?? ''),
+    image_url: raw.image_url ?? null,
   };
 }
 
@@ -82,6 +94,8 @@ export default function ProductDetailPage() {
   const [quantity, setQuantity] = useState(1);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [addingToCart, setAddingToCart] = useState(false);
+  const [imgSrc, setImgSrc] = useState<string | null>(null);
+
   const [reviews] = useState([
     { id: 1, user: 'John D.', rating: 5, comment: 'Fresh and high quality vegetables!', date: '2024-01-15' },
     { id: 2, user: 'Sarah M.', rating: 4, comment: 'Good quality, delivered on time.', date: '2024-01-10' },
@@ -95,6 +109,13 @@ export default function ProductDetailPage() {
     loadCartFromLocalStorage();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productId]);
+
+  // when product is loaded, compute best image src
+  useEffect(() => {
+    if (!product) return;
+    const best = getBestImage(product);
+    setImgSrc(best);
+  }, [product]);
 
   const loadCartFromLocalStorage = () => {
     const savedCart = localStorage.getItem('cart');
@@ -200,22 +221,20 @@ export default function ProductDetailPage() {
     return cartItems.reduce((total, item) => total + item.qty, 0);
   };
 
-  const getProductImage = (categoryName: string) => {
-    switch (categoryName) {
-      case 'Vegetables':
-        return '🥕';
-      case 'Fruits':
-        return '🍎';
-      case 'Leafy Greens':
-        return '🥬';
-      case 'Root Vegetables':
-        return '🥔';
-      default:
-        return '🌱';
-    }
-  };
-
   const averageRating = reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length;
+
+  function getBestImage(p: ProductDetail): string {
+    if (p.image_url && p.image_url.trim() !== '') return p.image_url;
+    const slug = slugify(p.product_name);
+    return `/images/products/${slug}.webp`;
+  }
+
+  const categoryFallback: Record<string, string> = {
+    'Vegetables': '/images/vegetables.png',
+    'Fruits': '/images/fruits.png',
+    'Leafy Greens': '/images/leafy-greens.png',
+    'Root Vegetables': '/images/root-vegetables.png',
+  };
 
   if (loading) {
     return (
@@ -275,9 +294,29 @@ export default function ProductDetailPage() {
           {/* Product Image */}
           <div className="product-image-section">
             <div className="product-image-large">
-              <div className="product-image-placeholder">
-                {getProductImage(product.category_name)}
-              </div>
+              {/* Real image with graceful fallbacks */}
+              {imgSrc ? (
+                <div className="image-wrap">
+                  <Image
+                    src={imgSrc}
+                    alt={product.product_name}
+                    fill
+                    sizes="(max-width: 768px) 100vw, 50vw"
+                    placeholder="blur"
+                    blurDataURL="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQwIiBoZWlnaHQ9IjQ4MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCBmaWxsPSIjZWVlIiB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIi8+PC9zdmc+"
+                    onError={() => {
+                      const fb = categoryFallback[product.category_name] || '/images/all-products.png';
+                      if (imgSrc !== fb) setImgSrc(fb);
+                    }}
+                    style={{ objectFit: 'cover' }}
+                  />
+                </div>
+              ) : (
+                <div className="no-image-fallback">
+                  <ImageOff size={28} />
+                  <span>No image</span>
+                </div>
+              )}
             </div>
 
             {/* Trust Badges */}
@@ -357,7 +396,7 @@ export default function ProductDetailPage() {
                   value={quantity}
                   onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
                   className="quantity-input"
-                  min="1"
+                  min={1}
                   max={product.daily_limit}
                 />
                 <button
@@ -437,165 +476,96 @@ export default function ProductDetailPage() {
       </div>
 
       <style jsx>{`
-        .product-detail-page {
-          min-height: 100vh;
-          background: #fafafa;
-        }
-        .loading-screen,
-        .error-screen {
-          min-height: 100vh;
-          display: flex;
-          flex-direction: column;
-        }
-        .loading-content,
-        .error-content {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          text-align: center;
-          padding: 2rem;
-        }
-        .loading-spinner {
-          width: 60px;
-          height: 60px;
-          border: 4px solid #e5e7eb;
-          border-top: 4px solid #15803d;
-          border-radius: 50%;
-          animation: spin 1s linear infinite;
-          margin-bottom: 2rem;
-        }
-        .back-button {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.5rem;
-          padding: 0.75rem 1.5rem;
-          background: #15803d;
-          color: white;
-          text-decoration: none;
-          border-radius: 8px;
-          transition: all 0.3s;
-        }
+        .product-detail-page { min-height: 100vh; background: #fafafa; }
+        .loading-screen, .error-screen { min-height: 100vh; display: flex; flex-direction: column; }
+        .loading-content, .error-content { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 2rem; }
+        .loading-spinner { width: 60px; height: 60px; border: 4px solid #e5e7eb; border-top: 4px solid #15803d; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 2rem; }
+        .back-button { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.5rem; background: #15803d; color: white; text-decoration: none; border-radius: 8px; transition: all 0.3s; }
         .back-button:hover { background: #166534; }
         .breadcrumb { background: white; border-bottom: 1px solid #e5e7eb; }
-        .breadcrumb-container {
-          max-width: 1200px; margin: 0 auto; padding: 1rem 2rem;
-          display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem;
-        }
+        .breadcrumb-container { max-width: 1200px; margin: 0 auto; padding: 1rem 2rem; display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; }
         .breadcrumb-link { color: #6b7280; text-decoration: none; transition: color 0.3s; }
         .breadcrumb-link:hover { color: #15803d; }
         .breadcrumb-separator { color: #d1d5db; }
         .breadcrumb-current { color: #15803d; font-weight: 500; }
+
         .product-detail-container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
-        .back-btn {
-          display: inline-flex; align-items: center; gap: 0.5rem; background: none; border: none;
-          color: #6b7280; font-size: 0.9rem; cursor: pointer; margin-bottom: 2rem; padding: 0.5rem;
-          border-radius: 6px; transition: all 0.3s;
-        }
+        .back-btn { display: inline-flex; align-items: center; gap: 0.5rem; background: none; border: none; color: #6b7280; font-size: 0.9rem; cursor: pointer; margin-bottom: 2rem; padding: 0.5rem; border-radius: 6px; transition: all 0.3s; }
         .back-btn:hover { background: #f3f4f6; color: #15803d; }
-        .product-detail-grid {
-          display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; margin-bottom: 4rem;
-        }
+
+        .product-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; margin-bottom: 4rem; }
         .product-image-section { display: flex; flex-direction: column; gap: 1.5rem; }
-        .product-image-large {
-          background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
-          border-radius: 20px; padding: 3rem; display: flex; align-items: center; justify-content: center; min-height: 400px;
-        }
-        .product-image-placeholder { font-size: 10rem; }
+        .product-image-large { position: relative; background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-radius: 20px; padding: 0; min-height: 420px; overflow: hidden; }
+        .image-wrap { position: absolute; inset: 0; }
+        .no-image-fallback { min-height: 420px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5rem; color: #6b7280; }
         .trust-badges { display: flex; gap: 1rem; justify-content: center; }
-        .trust-badge {
-          display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1rem; background: white;
-          border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); color: #15803d; font-size: 0.8rem; font-weight: 500;
-        }
+        .trust-badge { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1rem; background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); color: #15803d; font-size: 0.8rem; font-weight: 500; }
+
         .product-info-section { display: flex; flex-direction: column; gap: 2rem; }
         .product-header { display: flex; flex-direction: column; gap: 1rem; }
-        .product-category {
-          color: #6b7280; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px;
-        }
+        .product-category { color: #6b7280; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px; }
         .product-title { font-size: 2.5rem; font-weight: bold; color: #1f2937; line-height: 1.2; }
         .product-rating { display: flex; align-items: center; gap: 1rem; }
         .stars { display: flex; gap: 2px; }
         .star-filled { color: #fbbf24; }
         .star-empty { color: #e5e7eb; }
         .rating-text { color: #6b7280; font-size: 0.9rem; }
-        .product-price {
-          display: flex; align-items: baseline; gap: 1rem; padding: 1.5rem 0;
-          border-top: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb;
-        }
+
+        .product-price { display: flex; align-items: baseline; gap: 1rem; padding: 1.5rem 0; border-top: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; }
         .price-value { font-size: 2.5rem; font-weight: bold; color: #15803d; }
         .price-unit { color: #6b7280; font-size: 1.1rem; }
-        .stock-info {
-          display: flex; flex-direction: column; gap: 0.75rem; padding: 1.5rem; background: #f8fafc; border-radius: 12px;
-        }
+
+        .stock-info { display: flex; flex-direction: column; gap: 0.75rem; padding: 1.5rem; background: #f8fafc; border-radius: 12px; }
         .stock-item { display: flex; justify-content: space-between; align-items: center; }
         .stock-label { color: #6b7280; font-weight: 500; }
         .stock-value { color: #1f2937; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; }
+
         .quantity-section { display: flex; flex-direction: column; gap: 1rem; }
         .quantity-label { font-weight: 600; color: #1f2937; }
         .quantity-controls { display: flex; align-items: center; gap: 1rem; }
-        .quantity-btn {
-          display: flex; align-items: center; justify-content: center; width: 40px; height: 40px;
-          border: 2px solid #e5e7eb; background: white; border-radius: 8px; cursor: pointer; transition: all 0.3s;
-        }
+        .quantity-btn { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border: 2px solid #e5e7eb; background: white; border-radius: 8px; cursor: pointer; transition: all 0.3s; }
         .quantity-btn:hover:not(:disabled) { border-color: #15803d; color: #15803d; }
         .quantity-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        .quantity-input {
-          width: 80px; height: 40px; text-align: center; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 1rem; font-weight: 600; outline: none;
-        }
+        .quantity-input { width: 80px; height: 40px; text-align: center; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 1rem; font-weight: 600; outline: none; }
         .quantity-input:focus { border-color: #15803d; }
         .quantity-total { color: #15803d; font-weight: 600; font-size: 1.1rem; }
-        .add-to-cart-main {
-          display: flex; align-items: center; justify-content: center; gap: 0.75rem; width: 100%; padding: 1rem 2rem;
-          background: linear-gradient(135deg, #15803d, #059669); color: white; border: none; border-radius: 12px; font-size: 1.1rem; font-weight: 600; cursor: pointer; transition: all 0.3s;
-        }
-        .add-to-cart-main:hover:not(:disabled) {
-          background: linear-gradient(135deg, #166534, #047857); transform: translateY(-2px);
-          box-shadow: 0 4px 15px rgba(21,128,61,0.3);
-        }
+
+        .add-to-cart-main { display: flex; align-items: center; justify-content: center; gap: 0.75rem; width: 100%; padding: 1rem 2rem; background: linear-gradient(135deg, #15803d, #059669); color: white; border: none; border-radius: 12px; font-size: 1.1rem; font-weight: 600; cursor: pointer; transition: all 0.3s; }
+        .add-to-cart-main:hover:not(:disabled) { background: linear-gradient(135deg, #166534, #047857); transform: translateY(-2px); box-shadow: 0 4px 15px rgba(21,128,61,0.3); }
         .add-to-cart-main:disabled { background: #d1d5db; cursor: not-allowed; transform: none; box-shadow: none; }
-        .loading-spinner-small {
-          width: 20px; height: 20px; border: 2px solid #ffffff60; border-top: 2px solid #ffffff; border-radius: 50%; animation: spin 1s linear infinite;
-        }
-        .product-description {
-          display: flex; flex-direction: column; gap: 1rem; padding: 2rem; background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        }
+        .loading-spinner-small { width: 20px; height: 20px; border: 2px solid #ffffff60; border-top: 2px solid #ffffff; border-radius: 50%; animation: spin 1s linear infinite; }
+
+        .product-description { display: flex; flex-direction: column; gap: 1rem; padding: 2rem; background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
         .product-description h3 { font-size: 1.2rem; font-weight: 600; color: #1f2937; }
         .product-description p { color: #6b7280; line-height: 1.6; }
-        .product-description ul {
-          list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem;
-        }
+        .product-description ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; }
         .product-description li { display: flex; align-items: center; gap: 0.5rem; color: #6b7280; }
         .product-description li::before { content: '✓'; color: #15803d; font-weight: bold; }
+
         .reviews-section { padding: 2rem 0; border-top: 1px solid #e5e7eb; }
         .reviews-title { font-size: 2rem; font-weight: bold; color: #1f2937; margin-bottom: 2rem; }
         .reviews-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; }
-        .review-card {
-          background: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-          display: flex; flex-direction: column; gap: 1rem;
-        }
+        .review-card { background: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); display: flex; flex-direction: column; gap: 1rem; }
         .review-header { display: flex; justify-content: space-between; align-items: center; }
         .review-user { font-weight: 600; color: #1f2937; }
         .review-rating { display: flex; gap: 1px; }
         .review-comment { color: #6b7280; line-height: 1.5; margin: 0; }
         .review-date { color: #9ca3af; font-size: 0.8rem; }
+
         @media (max-width: 768px) {
           .product-detail-container { padding: 1rem; }
           .product-detail-grid { grid-template-columns: 1fr; gap: 2rem; }
           .product-title { font-size: 2rem; }
           .price-value { font-size: 2rem; }
-          .product-image-large { min-height: 300px; padding: 2rem; }
-          .product-image-placeholder { font-size: 6rem; }
+          .product-image-large { min-height: 320px; }
           .trust-badges { flex-direction: column; align-items: center; }
           .trust-badge { width: 100%; justify-content: center; }
           .quantity-controls { justify-content: center; }
           .reviews-grid { grid-template-columns: 1fr; }
           .breadcrumb-container { padding: 1rem; }
         }
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
       `}</style>
     </div>
   );
