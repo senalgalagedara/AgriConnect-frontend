@@ -7,16 +7,16 @@ import { Plus, Minus, Trash2, ShoppingBag } from 'lucide-react';
 import Navbar from '../../components/NavbarHome';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:5000/api';
-const USER_ID = '1';
-const TAX_RATE = 0.065; // 6.5%
+const USER_ID = 1;
+const TAX_RATE = 0.065;
 
 interface CartItem {
-  id: string;            // cart_items.id (UUID)
+  id: string;
   product_id: number;
   name: string;
-  price: number;         // per kg or unit
-  qty: number;           // assume kg for the delivery rule
-  unit?: string;         // default to 'kg' for display
+  price: number;
+  qty: number;
+  unit?: string;
 }
 
 interface CartTotals {
@@ -54,7 +54,8 @@ export default function CartPage() {
 
   const [cartData, setCartData] = useState<CartData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [updating, setUpdating] = useState<string | null>(null); // UUID
+  const [updating, setUpdating] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
   const [contact, setContact] = useState<ContactDetails>({
     firstName: '',
     lastName: '',
@@ -82,7 +83,7 @@ export default function CartPage() {
       const savedShipping = localStorage.getItem('shipping');
       if (savedContact) setContact(JSON.parse(savedContact));
       if (savedShipping) setShipping(JSON.parse(savedShipping));
-    } catch {}
+    } catch { }
   };
 
   const fetchCart = async () => {
@@ -96,7 +97,7 @@ export default function CartPage() {
       const normalized: CartData = {
         cart: data?.cart ?? null,
         items,
-        totals: {
+        totals: data?.totals ?? {
           subtotal: 0,
           tax: 0,
           shippingFee: 0,
@@ -104,22 +105,6 @@ export default function CartPage() {
         },
       };
       setCartData(normalized);
-
-      // keep a lightweight mirror in localStorage
-      try {
-        localStorage.setItem(
-          'cart',
-          JSON.stringify(
-            items.map((item) => ({
-              id: item.product_id,
-              name: item.name,
-              price: item.price,
-              qty: item.qty,
-              unit: item.unit || 'kg',
-            }))
-          )
-        );
-      } catch {}
     } catch (err) {
       console.error(err);
       setCartData({ cart: null, items: [], totals: { subtotal: 0, tax: 0, shippingFee: 0, total: 0 } });
@@ -142,30 +127,14 @@ export default function CartPage() {
       });
       if (!response.ok) throw new Error('Failed to update quantity');
 
-      // Expect backend returns the updated cart; we only trust items array here
       const updated = await response.json();
       const items: CartItem[] = Array.isArray(updated?.items) ? updated.items : [];
 
       setCartData((prev) => ({
         cart: prev?.cart ?? null,
         items,
-        totals: prev?.totals ?? { subtotal: 0, tax: 0, shippingFee: 0, total: 0 },
+        totals: updated?.totals ?? prev?.totals ?? { subtotal: 0, tax: 0, shippingFee: 0, total: 0 },
       }));
-
-      try {
-        localStorage.setItem(
-          'cart',
-          JSON.stringify(
-            items.map((item: CartItem) => ({
-              id: item.product_id,
-              name: item.name,
-              price: item.price,
-              qty: item.qty,
-              unit: item.unit || 'kg',
-            }))
-          )
-        );
-      } catch {}
     } catch (err) {
       console.error(err);
     } finally {
@@ -185,23 +154,8 @@ export default function CartPage() {
       setCartData((prev) => ({
         cart: prev?.cart ?? null,
         items,
-        totals: prev?.totals ?? { subtotal: 0, tax: 0, shippingFee: 0, total: 0 },
+        totals: updated?.totals ?? prev?.totals ?? { subtotal: 0, tax: 0, shippingFee: 0, total: 0 },
       }));
-
-      try {
-        localStorage.setItem(
-          'cart',
-          JSON.stringify(
-            items.map((item: CartItem) => ({
-              id: item.product_id,
-              name: item.name,
-              price: item.price,
-              qty: item.qty,
-              unit: item.unit || 'kg',
-            }))
-          )
-        );
-      } catch {}
     } catch (err) {
       console.error(err);
     } finally {
@@ -209,7 +163,6 @@ export default function CartPage() {
     }
   };
 
-  // ---------- Client totals with delivery rule ----------
   const totalQty = useMemo(
     () => (cartData?.items || []).reduce((s, it) => s + Number(it.qty || 0), 0),
     [cartData?.items]
@@ -218,40 +171,78 @@ export default function CartPage() {
     () => (cartData?.items || []).reduce((s, it) => s + Number(it.price) * Number(it.qty), 0),
     [cartData?.items]
   );
-  const deliveryFee = totalQty > 10 ? 300 : 0; // rule: > 10kg => Rs. 300
+  const deliveryFee = totalQty > 10 ? 300 : 0;
   const tax = useMemo(() => subtotal * TAX_RATE, [subtotal]);
   const total = useMemo(() => subtotal + tax + deliveryFee, [subtotal, tax, deliveryFee]);
 
-  const proceedToCheckout = () => {
+  const proceedToCheckout = async () => {
     if (!cartData || cartData.items.length === 0) return;
 
-    const totalsToSave: CartTotals = {
-      subtotal,
-      tax,
-      shippingFee: deliveryFee,
-      total,
-    };
+    // Validate required fields
+    if (!contact.firstName || !contact.lastName || !contact.email || !contact.phone) {
+      alert('Please fill in all contact details');
+      return;
+    }
+
+    if (!shipping.house || !shipping.address || !shipping.city || !shipping.state || !shipping.postalCode) {
+      alert('Please fill in all shipping details');
+      return;
+    }
+
+    setCreating(true);
 
     try {
+      // Save contact and shipping to localStorage
       localStorage.setItem('contact', JSON.stringify(contact));
       localStorage.setItem('shipping', JSON.stringify(shipping));
-      localStorage.setItem(
-        'checkout',
-        JSON.stringify({
-          cart: cartData.items.map((item) => ({
-            id: item.product_id.toString(),
-            name: item.name,
-            price: item.price,
-            qty: item.qty,
-            unit: item.unit || 'kg',
-          })),
-          contact,
-          shipping,
-          totals: totalsToSave,
-        })
-      );
-    } catch {}
-    router.push('/checkout');
+
+      // Create order in backend
+      const orderPayload = {
+        contact: {
+          firstName: contact.firstName,
+          lastName: contact.lastName,
+          email: contact.email,
+          phone: contact.phone,
+        },
+        shipping: {
+          address: `${shipping.house}, ${shipping.address}`,
+          city: shipping.city,
+          state: shipping.state,
+          postalCode: shipping.postalCode,
+          landmark: shipping.landmark || '',
+        },
+        paymentMethod: 'COD', 
+      };
+
+      const response = await fetch(`${API_BASE}/orders/${USER_ID}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderPayload),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to create order');
+      }
+
+      const result = await response.json();
+      const orderId = result.data?.id || result.data?.order?.id;
+
+      if (!orderId) {
+        throw new Error('Order created but ID not returned');
+      }
+
+      // Save order ID for payment page
+      localStorage.setItem('pendingOrderId', orderId.toString());
+
+      // Navigate to checkout/payment page
+      router.push('/checkout');
+    } catch (err) {
+      console.error('Error creating order:', err);
+      alert(err instanceof Error ? err.message : 'Failed to create order. Please try again.');
+    } finally {
+      setCreating(false);
+    }
   };
 
   if (loading) {
@@ -280,7 +271,6 @@ export default function CartPage() {
       <Navbar cartItemCount={cartData?.items.reduce((sum, item) => sum + item.qty, 0) || 0} />
 
       <div className="shipping-main-container">
-        {/* Header with single Order ID */}
         <div className="header-row">
           <h1 className="page-title">Shipping</h1>
           <div className="order-id">
@@ -292,12 +282,10 @@ export default function CartPage() {
           <EmptyCart />
         ) : (
           <div className="shipping-content-grid">
-            {/* Left: Order Summary */}
             <div className="order-summary-section">
               <div className="brand-title">AgriConnect</div>
               <div className="order-summary-title">Order Summary</div>
 
-              {/* Products grid: ID, Name, Quantity, Price */}
               <div className="products-grid">
                 <div className="grid-header">
                   <div>ID</div>
@@ -313,7 +301,7 @@ export default function CartPage() {
                     <div className="cell qty-cell">
                       <button
                         onClick={() => updateQuantity(item.id, item.qty - 1)}
-                        disabled={updating === item.id}
+                        disabled={updating === item.id || creating}
                         className="qty-btn"
                         aria-label={`Decrease ${item.name}`}
                       >
@@ -324,7 +312,7 @@ export default function CartPage() {
                       </span>
                       <button
                         onClick={() => updateQuantity(item.id, item.qty + 1)}
-                        disabled={updating === item.id}
+                        disabled={updating === item.id || creating}
                         className="qty-btn"
                         aria-label={`Increase ${item.name}`}
                       >
@@ -332,7 +320,7 @@ export default function CartPage() {
                       </button>
                       <button
                         onClick={() => removeItem(item.id)}
-                        disabled={updating === item.id}
+                        disabled={updating === item.id || creating}
                         className="remove-btn"
                         aria-label={`Remove ${item.name}`}
                         title="Remove"
@@ -347,7 +335,6 @@ export default function CartPage() {
                 ))}
               </div>
 
-              {/* Totals */}
               <div className="summary-totals">
                 <div className="summary-row">
                   <span>Subtotal</span>
@@ -370,7 +357,6 @@ export default function CartPage() {
               </div>
             </div>
 
-            {/* Right: Contact + Shipping forms with labels */}
             <div className="shipping-form-section">
               <div className="shipping-stepper">
                 <span className="step-active">Shipping</span>
@@ -383,42 +369,50 @@ export default function CartPage() {
 
                 <div className="form-row">
                   <label className="field">
-                    <span className="label">First Name</span>
+                    <span className="label">First Name *</span>
                     <input
                       type="text"
                       value={contact.firstName}
                       onChange={(e) => setContact({ ...contact, firstName: e.target.value })}
+                      disabled={creating}
+                      required
                     />
                   </label>
 
                   <label className="field">
-                    <span className="label">Last Name</span>
+                    <span className="label">Last Name *</span>
                     <input
                       type="text"
                       value={contact.lastName}
                       onChange={(e) => setContact({ ...contact, lastName: e.target.value })}
+                      disabled={creating}
+                      required
                     />
                   </label>
                 </div>
 
                 <div className="form-row">
                   <label className="field">
-                    <span className="label">Email</span>
+                    <span className="label">Email *</span>
                     <input
                       type="email"
                       value={contact.email}
                       onChange={(e) => setContact({ ...contact, email: e.target.value })}
+                      disabled={creating}
+                      required
                     />
                   </label>
                 </div>
 
                 <div className="form-row">
                   <label className="field">
-                    <span className="label">Phone Number</span>
+                    <span className="label">Phone Number *</span>
                     <input
                       type="text"
                       value={contact.phone}
                       onChange={(e) => setContact({ ...contact, phone: e.target.value })}
+                      disabled={creating}
+                      required
                     />
                   </label>
                 </div>
@@ -429,53 +423,63 @@ export default function CartPage() {
 
                 <div className="form-row">
                   <label className="field">
-                    <span className="label">Flat / House No.</span>
+                    <span className="label">Flat / House No. *</span>
                     <input
                       type="text"
                       value={shipping.house}
                       onChange={(e) => setShipping({ ...shipping, house: e.target.value })}
+                      disabled={creating}
+                      required
                     />
                   </label>
                 </div>
 
                 <div className="form-row">
                   <label className="field">
-                    <span className="label">Address</span>
+                    <span className="label">Address *</span>
                     <input
                       type="text"
                       value={shipping.address}
                       onChange={(e) => setShipping({ ...shipping, address: e.target.value })}
+                      disabled={creating}
+                      required
                     />
                   </label>
                 </div>
 
                 <div className="form-row">
                   <label className="field">
-                    <span className="label">City</span>
+                    <span className="label">City *</span>
                     <input
                       type="text"
                       value={shipping.city}
                       onChange={(e) => setShipping({ ...shipping, city: e.target.value })}
+                      disabled={creating}
+                      required
                     />
                   </label>
 
                   <label className="field">
-                    <span className="label">State</span>
+                    <span className="label">State *</span>
                     <input
                       type="text"
                       value={shipping.state}
                       onChange={(e) => setShipping({ ...shipping, state: e.target.value })}
+                      disabled={creating}
+                      required
                     />
                   </label>
                 </div>
 
                 <div className="form-row">
                   <label className="field">
-                    <span className="label">Postal Code</span>
+                    <span className="label">Postal Code *</span>
                     <input
                       type="text"
                       value={shipping.postalCode}
                       onChange={(e) => setShipping({ ...shipping, postalCode: e.target.value })}
+                      disabled={creating}
+                      required
                     />
                   </label>
 
@@ -485,6 +489,7 @@ export default function CartPage() {
                       type="text"
                       value={shipping.landmark || ''}
                       onChange={(e) => setShipping({ ...shipping, landmark: e.target.value })}
+                      disabled={creating}
                     />
                   </label>
                 </div>
@@ -495,6 +500,7 @@ export default function CartPage() {
                     checked={shipping.sameAsBilling}
                     onChange={(e) => setShipping({ ...shipping, sameAsBilling: e.target.checked })}
                     id="sameAsBilling"
+                    disabled={creating}
                   />
                   <label htmlFor="sameAsBilling">My shipping and billing address are the same</label>
                 </div>
@@ -503,9 +509,20 @@ export default function CartPage() {
               <button
                 className="continue-btn"
                 onClick={proceedToCheckout}
-                disabled={!contact.firstName || !contact.lastName || !contact.email || !shipping.address}
+                disabled={
+                  creating ||
+                  !contact.firstName ||
+                  !contact.lastName ||
+                  !contact.email ||
+                  !contact.phone ||
+                  !shipping.house ||
+                  !shipping.address ||
+                  !shipping.city ||
+                  !shipping.state ||
+                  !shipping.postalCode
+                }
               >
-                Continue to Payment
+                {creating ? 'Creating Order...' : 'Continue to Payment'}
               </button>
             </div>
           </div>
@@ -546,8 +563,10 @@ export default function CartPage() {
           width: 26px; height: 26px; border: 1px solid #d1d5db; background: #fff; border-radius: 6px;
           display: flex; align-items: center; justify-content: center; cursor: pointer;
         }
+        .qty-btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .qty-value { min-width: 72px; text-align: center; font-weight: 600; color: #111827; }
         .remove-btn { background: none; border: none; color: #ef4444; cursor: pointer; margin-left: 8px; }
+        .remove-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
         .price-col { justify-content: flex-end; font-weight: 600; color: #14532d; }
 
@@ -571,6 +590,7 @@ export default function CartPage() {
           width: 100%; padding: 0.7rem 0.9rem; border: 1.5px solid #d1d5db; border-radius: 8px; font-size: 1rem; outline: none;
         }
         input[type="text"]:focus, input[type="email"]:focus { border-color: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,0.15); }
+        input:disabled { background: #f3f4f6; cursor: not-allowed; }
         .checkbox-row { align-items: center; gap: 0.5rem; margin-top: 0.25rem; }
 
         .continue-btn {
@@ -578,7 +598,7 @@ export default function CartPage() {
           color: white; border: none; border-radius: 10px; padding: 1rem 2rem;
           font-size: 1.05rem; font-weight: 700; margin-top: 0.2rem; cursor: pointer; transition: all 0.2s;
         }
-        .continue-btn:disabled { background: #9ca3af; cursor: not-allowed; }
+        .continue-btn:disabled { background: #9ca3af; cursor: not-allowed; opacity: 0.6; }
         .continue-btn:not(:disabled):hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(16,185,129,0.35); }
 
         @media (max-width: 900px) {
