@@ -1,9 +1,12 @@
 "use client";
 import React, { createContext, useCallback, useContext, useState, ReactNode } from "react";
 
+export type FeedbackType = 'user-experience' | 'performance' | 'product-service' | 'transactional';
+
 export interface FeedbackData {
   rating: number;
   comment: string;
+  feedbackType: FeedbackType;
   // Allow extension (e.g., orderId, userId)
   meta?: Record<string, any>;
 }
@@ -38,6 +41,7 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState<number | null>(null);
   const [comment, setComment] = useState("");
+  const [feedbackType, setFeedbackType] = useState<FeedbackType>('user-experience');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -72,7 +76,12 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
     setError(null);
     setSubmitting(true);
     try {
-      const data: FeedbackData = { rating, comment: comment.trim(), meta: options?.meta };
+      const data: FeedbackData = { 
+        rating, 
+        comment: comment.trim(), 
+        feedbackType,
+        meta: options?.meta 
+      };
       await options?.onSubmitted?.(data);
       setSuccess(true);
       const delay = options?.autoCloseDelay === undefined ? 2000 : options.autoCloseDelay;
@@ -108,6 +117,12 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
           marginBottom: '24px'
         }}>
           <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '8px'}}>
+            <span style={{fontWeight: '500', color: '#374151'}}>Feedback Type:</span>
+            <span style={{color: '#6b7280'}}>
+              {feedbackType.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+            </span>
+          </div>
+          <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '8px'}}>
             <span style={{fontWeight: '500', color: '#374151'}}>Your rating:</span>
             <div style={{display: 'flex', alignItems: 'center'}}>
               {Array.from({length:5},(_,i)=>(
@@ -124,25 +139,22 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
           )}
         </div>
       )}
-      <button
-        type="button"
-        onClick={close}
-        style={{
-          width: '100%',
-          backgroundColor: '#9333ea',
-          color: 'white',
-          fontWeight: '600',
-          padding: '12px 32px',
-          borderRadius: '12px',
-          border: 'none',
-          cursor: 'pointer',
-          transition: 'background-color 0.2s'
-        }}
-        onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#7c3aed'}
-        onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#9333ea'}
-      >
-        Close
-      </button>
+      <div className="flex gap-4">
+        <button
+          type="button"
+          onClick={() => setSuccess(false)}
+          className="flex-1 px-6 py-3 bg-white border border-gray-300 hover:border-purple-500 text-purple-600 font-semibold rounded-xl transition-colors duration-200"
+        >
+          Edit Feedback
+        </button>
+        <button
+          type="button"
+          onClick={close}
+          className="flex-1 px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl transition-colors duration-200"
+        >
+          Close
+        </button>
+      </div>
     </div>
   );  return (
     <FeedbackContext.Provider value={{ open, close, isOpen }}>
@@ -193,6 +205,21 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
                     })}
                   </div>
                   <span className="text-sm text-gray-600">{rating}/5 {rating > 0 && 'stars'}</span>
+                </div>
+
+                <div className="space-y-3">
+                  <label className="block text-sm font-semibold text-gray-800">Feedback Type</label>
+                  <select
+                    value={feedbackType}
+                    onChange={(e) => setFeedbackType(e.target.value as FeedbackType)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none text-sm [&>option]:rounded-none"
+                    style={{ height: '32px' }}
+                  >
+                    <option value="user-experience">User Experience</option>
+                    <option value="performance">Performance</option>
+                    <option value="product-service">Product/Service</option>
+                    <option value="transactional">Transaction</option>
+                  </select>
                 </div>
 
                 <div className="space-y-3">

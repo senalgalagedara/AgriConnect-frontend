@@ -2,63 +2,47 @@
 import React from "react";
 import { useFeedback } from "@feedback/FeedbackContext";
 
-// Demo page to manually trigger the feedback modal in different configurations
-export default function FeedbackDemoPage() {
+export default function FeedbackPage() {
 	const { open } = useFeedback();
 
-	const handleBasic = () => {
+	const handleFeedback = () => {
 		open({
-			title: "Session feedback",
-			subtitle: "Let us know how your experience was",
-			onSubmitted: async (data) => {
-				// Simulate network latency
-				await new Promise(r => setTimeout(r, 800));
-				console.log("Feedback submitted (basic):", data);
-			}
-		});
-	};
-
-	const handleCustomSuccess = () => {
-		open({
-			title: "Rate your delivery",
-			subtitle: "How was the delivery experience?",
-			submitLabel: "Send rating",
-			homeLabel: "Back home",
-			rejoinLabel: "Track again",
-			successTitle: "Thanks for rating!",
-			successMessage: "Your feedback helps us improve logistics and delivery speed.",
+			title: "Share Your Feedback",
+			subtitle: "Help us improve AgriConnect by sharing your thoughts and experiences",
+			submitLabel: "Submit Feedback",
+			homeLabel: "Return to Home",
+			successTitle: "Thank you for your feedback!",
+			successMessage: "Your feedback helps us create a better experience for everyone.",
 			showRatingSummary: true,
-			autoCloseDelay: null, // keep success screen open until user closes
-			meta: { source: "feedback-demo", context: "custom-success" },
+			autoCloseDelay: null,
+			meta: { context: "platform-feedback" },
 			onSubmitted: async (data) => {
 				await new Promise(r => setTimeout(r, 1000));
-				console.log("Feedback submitted (custom):", data);
-			},
-			onClosed: () => console.log("Feedback modal closed")
+				console.log("Feedback submitted:", data);
+			}
 		});
 	};
 
 	return (
 		<div className="min-h-[60vh] flex flex-col items-center justify-center gap-10 px-6 py-16">
 			<div className="text-center space-y-4 max-w-xl">
-				<h1 className="text-4xl font-bold tracking-tight">Feedback Modal Demo</h1>
-				<p className="text-gray-500">Use the buttons below to open the reusable feedback modal in different modes. This page is only for development/demo purposes and can be removed later.</p>
+				<h1 className="text-4xl font-bold tracking-tight">Feedback</h1>
+				<p className="text-gray-500">
+					We value your feedback! Your input helps us improve AgriConnect and provide better service to our community.
+				</p>
 			</div>
-			<div className="flex flex-col sm:flex-row gap-6">
+			<div className="flex justify-center w-full">
 				<button
-					onClick={handleBasic}
-					className="px-8 py-4 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-semibold shadow-lg transition"
+					onClick={handleFeedback}
+					className="px-12 py-6 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-semibold shadow-lg transition flex items-center gap-3"
 				>
-					Open basic feedback
-				</button>
-				<button
-					onClick={handleCustomSuccess}
-					className="px-8 py-4 rounded-2xl bg-white border border-gray-300 hover:border-gray-400 text-gray-800 font-semibold shadow-lg transition"
-				>
-					Open custom success example
+					<span className="text-xl">★</span>
+					<span>Share Your Feedback</span>
 				</button>
 			</div>
-			<div className="pt-4 text-xs text-gray-400">Path: app/feedback/page.tsx</div>
+			<div className="text-center text-sm text-gray-500 max-w-md">
+				<p>You can provide feedback on user experience, performance, products/services, or transactions through our feedback form.</p>
+			</div>
 		</div>
 	);
 }
