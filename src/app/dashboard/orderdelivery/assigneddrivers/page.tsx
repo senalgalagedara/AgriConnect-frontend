@@ -1,6 +1,8 @@
-'use client';
+"use client";
 
 import { useEffect, useState } from 'react';
+import Sidebar from '../../../../components/sidebar';
+import NavbarHome from '../../../../components/NavbarHome';
 
 type Row = {
   assignmentId: number;
@@ -8,7 +10,7 @@ type Row = {
   driverId: number;
   customerName: string;
   address: string;
-  scheduleStatus: 'Scheduled' | 'In Transit' | 'Completed' | 'Cancelled';
+  scheduleStatus: 'Scheduled' | 'In Transit' | 'Completed' | 'Cancelled' | string;
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:5000/api';
@@ -42,58 +44,72 @@ export default function AssignmentsPage() {
   }, []);
 
   return (
-    <div className="wrap">
-      <h1>Assigned Drivers</h1>
+    <div className="dashboardRoot">
+      <NavbarHome />
+      <div className="layout">
+        <aside className="side"><Sidebar /></aside>
+        <main className="main">
+          <h1>Assigned Drivers</h1>
 
-      {loading && <div className="note">Loading…</div>}
-      {err && <div className="error">Error: {err}</div>}
+          {loading && <div className="note">Loading…</div>}
+          {err && <div className="error">Error: {err}</div>}
 
-      {!loading && !err && (
-        <div className="tableWrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Assignment ID</th>
-                <th>Order id</th>
-                <th>Driverid</th>
-                <th>Customer name</th>
-                <th>Address</th>
-                <th>ScheduleStatus</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map(r => (
-                <tr key={r.assignmentId}>
-                  <td>{r.assignmentId}</td>
-                  <td>{r.orderId}</td>
-                  <td>{r.driverId}</td>
-                  <td>{r.customerName}</td>
-                  <td>{r.address}</td>
-                  <td><span className={`badge ${r.scheduleStatus.replace(/\s+/g,'').toLowerCase()}`}>{r.scheduleStatus}</span></td>
-                </tr>
-              ))}
-              {rows.length === 0 && (
-                <tr><td colSpan={6} className="note">No assignments yet</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
+          {!loading && !err && (
+            <div className="tableWrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Assignment ID</th>
+                    <th>Order</th>
+                    <th>Driver</th>
+                    <th>Customer</th>
+                    <th>Address</th>
+                    <th>Schedule</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map(r => (
+                    <tr key={r.assignmentId}>
+                      <td className="mono">#{r.assignmentId}</td>
+                      <td className="muted">#{r.orderId}</td>
+                      <td>#{r.driverId}</td>
+                      <td>{r.customerName}</td>
+                      <td className="small muted">{r.address}</td>
+                      <td><span className={`badge ${r.scheduleStatus.replace(/\s+/g,'').toLowerCase()}`}>{r.scheduleStatus}</span></td>
+                    </tr>
+                  ))}
+                  {rows.length === 0 && (
+                    <tr><td colSpan={6} className="note">No assignments yet</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+        </main>
+      </div>
 
       <style jsx>{`
-        .wrap { display: grid; gap: 12px; }
-        h1 { font-size: 20px; margin: 0; }
-        .tableWrap { overflow: auto; border: 1px solid #eee; border-radius: 10px; background: #fff; }
+        .dashboardRoot { background: #f6faf6; min-height: 100vh; }
+        .layout { display: grid; grid-template-columns: 240px 1fr; gap: 20px; max-width: 1100px; margin: 20px auto; }
+        .side { position: sticky; top: 88px; align-self: start; }
+        .main { background: #fff; padding: 18px; border-radius: 12px; box-shadow: 0 6px 18px rgba(16,24,40,0.05); }
+        h1 { margin: 0 0 12px 0; color: #0f5132; }
+        .tableWrap { overflow: auto; border-radius: 10px; background: #fff; border: 1px solid #eefaf0; }
         table { width: 100%; border-collapse: collapse; font-size: 14px; }
-        thead th { text-align: left; padding: 10px; background: #fafafa; border-bottom: 1px solid #eee; white-space: nowrap; }
-        tbody td { padding: 10px; border-bottom: 1px solid #f2f2f2; vertical-align: top; }
-        .badge { padding: 3px 8px; border-radius: 999px; font-size: 12px; border: 1px solid #e5e5e5; background: #f7f7f7; }
-        .badge.scheduled { background: #e6f7ff; border-color: #91d5ff; }
-        .badge.intransit { background: #fffbe6; border-color: #ffe58f; }
-        .badge.completed { background: #f6ffed; border-color: #b7eb8f; }
-        .badge.cancelled { background: #fff1f0; border-color: #ffa39e; }
-        .note { padding: 10px; color: #666; }
-        .error { padding: 10px; color: #a50000; background: #fff1f0; border: 1px solid #ffa39e; border-radius: 8px; }
+        thead th { text-align:left; padding:12px; background: linear-gradient(180deg,#f8fff9,#f2fff5); border-bottom:1px solid #eef6ee; color:#065f46; }
+        tbody td { padding:12px; border-bottom:1px solid #f3f7f4; }
+        .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', monospace; color:#064e3b; }
+        .muted { color:#6b7280; }
+        .small { font-size:12px; }
+        .badge { padding:6px 10px; border-radius:999px; font-weight:700; }
+        .badge.scheduled { background:#ecfeff; color:#0ea5b7; border:1px solid #cffafe; }
+        .badge.intransit { background:#fff7ed; color:#b45309; border:1px solid #ffedd5; }
+        .badge.completed { background:#f6ffed; color:#15803d; border:1px solid #bbf7d0; }
+        .badge.cancelled { background:#fff1f0; color:#a50b0b; border:1px solid #ffd6d6; }
+        .note { padding:12px; color:#4b5563; }
+        .error { padding:12px; color:#a50000; background:#fff1f0; border:1px solid #ffa39e; border-radius:8px; }
+        @media (max-width:900px){ .layout{ grid-template-columns:1fr; } .side{ display:none; } }
       `}</style>
     </div>
   );
