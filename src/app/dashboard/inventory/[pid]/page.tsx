@@ -5,7 +5,6 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Sidebar from "../../../../components/sidebar";
 import Navbar from "../../../../components/navbar";
 import ItemCard from "../../../../components/itemcard";
-import ProvinceCard from "../../../../components/provincecard";
 
 interface Product {
   id: number;
@@ -200,7 +199,6 @@ export default function Inventory() {
         </div>
       </div>
 
-      {/* Centered POPUP modal */}
       {showAddModal && (
         <div
           className="modal-overlay"
@@ -225,7 +223,6 @@ export default function Inventory() {
             </div>
 
             <form className="modal-form" onSubmit={handleAddProduct}>
-              {/* row 1 */}
               <div className="field">
                 <label>Product Name</label>
                 <input
@@ -247,7 +244,6 @@ export default function Inventory() {
                 </select>
               </div>
 
-              {/* row 2 */}
               <div className="field">
                 <label>Unit</label>
                 <select name="unit">
@@ -264,18 +260,6 @@ export default function Inventory() {
                   type="number"
                   name="daily_limit"
                   placeholder="0"
-                  min="0"
-                  step="0.01"
-                />
-              </div>
-
-              {/* row 3 (span 2) */}
-              <div className="field span-2">
-                <label>Final Price</label>
-                <input
-                  type="number"
-                  name="final_price"
-                  placeholder="0.00"
                   min="0"
                   step="0.01"
                 />

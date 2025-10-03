@@ -114,27 +114,8 @@ export default function AdminDashboard() {
               Manage your entire system from one place
             </p>
           </div>
-
-          {/* Tab Navigation */}
-          <div className="tab-navigation">
-            <button
-              className={`tab-btn ${activeTab === 'overview' ? 'active' : ''}`}
-              onClick={() => setActiveTab('overview')}
-            >
-              📊 System Overview
-            </button>
-            <button
-              className={`tab-btn ${activeTab === 'inventory' ? 'active' : ''}`}
-              onClick={() => setActiveTab('inventory')}
-            >
-              📦 Inventory Management
-            </button>
-          </div>
-
-          {/* System Overview Tab */}
           {activeTab === 'overview' && (
             <div className="overview-section">
-              {/* Key Metrics */}
               <div className="metrics-grid">
                 <div className="metric-card revenue">
                   <h3>Total Revenue</h3>
@@ -160,64 +141,6 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {/* Inventory Management Tab */}
-          {activeTab === 'inventory' && (
-            <div className="inventory-section">
-              {error && (
-                <div className="error-message">
-                  {error}
-                  <button onClick={fetchProvinces} className="retry-btn">
-                    Retry
-                  </button>
-                </div>
-              )}
-
-              <div className="section-header">
-                <h2>Province Inventory Management</h2>
-                <p>Select a province to manage inventory</p>
-              </div>
-
-              <div className="card-grid">
-                {provinces.map((province) => (
-                  <ProvinceCard
-                    key={province.id}
-                    id={province.id}
-                    name={province.name}
-                    location={province.location}
-                    manager={province.manager_name}
-                    totalProducts={safeNumber(province.total_products)}
-                    currentStock={safeNumber(province.total_current_stock)}
-                    capacity={province.capacity}
-                    href={province.id === 1 ? "/dashboard/inventory" : "#"}
-                    isActive={province.id === 1}
-                  />
-                ))}
-              </div>
-
-              <div className="inventory-stats">
-                <div className="stat-card">
-                  <h3>Total Provinces</h3>
-                  <p className="stat-number">{provinces.length}</p>
-                </div>
-
-                <div className="stat-card">
-                  <h3>Active Provinces</h3>
-                  <p className="stat-number">1</p>
-                  <span className="stat-label">Western Province</span>
-                </div>
-
-                <div className="stat-card">
-                  <h3>Total Products</h3>
-                  <p className="stat-number">{totalProducts}</p>
-                </div>
-
-                <div className="stat-card">
-                  <h3>Total Stock</h3>
-                  <p className="stat-number">{totalStock.toFixed(0)} kg</p>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
