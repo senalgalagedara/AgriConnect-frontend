@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { useAuth } from '@/context/AuthContext';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +12,10 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Eye, EyeOff, Mail, Lock, Leaf } from 'lucide-react';
 
 export default function LoginPage() {
+  const { login, loading: authLoading } = useAuth();
+  const router = useRouter();
+  const search = useSearchParams();
+  const nextPath = search.get('next') || '/';
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -17,6 +23,7 @@ export default function LoginPage() {
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
@@ -55,17 +62,14 @@ export default function LoginPage() {
     if (!validateForm()) return;
 
     setIsLoading(true);
+    setSubmitError(null);
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      console.log('Login attempt:', formData);
-      
-      // Handle successful login here
-      // Redirect to appropriate dashboard based on user role from API response
-      alert('Login successful! Ready for backend integration.');
+      await login(formData.email, formData.password);
+      router.replace(nextPath);
     } catch (error) {
       console.error('Login error:', error);
+      setSubmitError(error instanceof Error ? error.message : 'Login failed');
     } finally {
       setIsLoading(false);
     }
@@ -160,12 +164,17 @@ export default function LoginPage() {
             </CardContent>
 
             <CardFooter className="flex flex-col space-y-4">
-              <Button 
-                type="submit" 
+              {submitError && (
+                <Alert className="border-red-200 bg-red-50">
+                  <AlertDescription className="text-red-600 text-sm">{submitError}</AlertDescription>
+                </Alert>
+              )}
+              <Button
+                type="submit"
                 className="w-full bg-green-500 hover:bg-green-600 text-white py-2.5"
-                disabled={isLoading}
+                disabled={isLoading || authLoading}
               >
-                {isLoading ? (
+                {(isLoading || authLoading) ? (
                   <div className="flex items-center space-x-2">
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                     <span>Signing in...</span>

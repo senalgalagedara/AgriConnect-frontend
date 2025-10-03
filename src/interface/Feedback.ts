@@ -1,6 +1,11 @@
+export type FeedbackType = 'user-experience' | 'performance' | 'product-service' | 'transactional';
+
 export interface FeedbackData {
   rating: number;
   comment: string;
+  feedbackType: FeedbackType;
+  createdAt?: string;
+  userId?: string;
   // Allow extension (e.g., orderId, userId)
   meta?: Record<string, any>;
 }

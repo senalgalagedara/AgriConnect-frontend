@@ -136,40 +136,58 @@ export default function SignupPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-blue-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-2xl">
+    <div
+      style={{
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg,#f0fdf4 0%,#ffffff 45%, #eff6ff 100%)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '40px 16px'
+      }}
+    >
+      <div style={{ width: '100%', maxWidth: 960 }}>
         {/* Logo and Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-green-500 rounded-full mb-4">
+        <div style={{ textAlign: 'center', marginBottom: 32 }}>
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 64,
+              height: 64,
+              background: '#16a34a',
+              borderRadius: '9999px',
+              marginBottom: 16
+            }}
+          >
             <Leaf className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900">Join AgriConnect</h1>
-          <p className="text-gray-600 mt-2">Create your account to get started</p>
+          <h1 style={{ fontSize: '30px', fontWeight: 700, color: '#111827', margin: 0 }}>Join AgriConnect</h1>
+            <p style={{ color: '#475569', marginTop: 8, fontSize: 14 }}>Create your account to get started</p>
         </div>
 
-        <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">
-          <CardHeader className="space-y-1 text-center">
-            <CardTitle className="text-2xl font-semibold">Create Account</CardTitle>
-            <CardDescription>
-              Fill in your details to join our farming community
-            </CardDescription>
+        <Card style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.08)', border: '0', background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(6px)' }}>
+          <CardHeader style={{ textAlign: 'center', paddingBottom: 12 }}>
+            <CardTitle style={{ fontSize: 24, fontWeight: 600, letterSpacing: '-0.5px' }}>Create Account</CardTitle>
+            <CardDescription style={{ marginTop: 4, fontSize: 14 }}>Fill in your details to join our farming community</CardDescription>
           </CardHeader>
 
           <form onSubmit={handleSubmit}>
-            <CardContent className="space-y-6">
+            <CardContent style={{ display: 'flex', flexDirection: 'column', gap: 32, paddingTop: 8 }}>
               {/* Name Fields */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div style={{ display: 'grid', gap: 24, gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))' }}>
                 <div className="space-y-2">
                   <Label htmlFor="firstName">First Name</Label>
                   <div className="relative">
-                    <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <Input
                       id="firstName"
                       name="firstName"
                       placeholder="Enter first name"
                       value={formData.firstName}
                       onChange={handleChange}
-                      className={`pl-10 ${errors.firstName ? 'border-red-500' : ''}`}
+                      className={`pl-12 h-11 ${errors.firstName ? 'border-red-500' : ''}`}
                     />
                   </div>
                   {errors.firstName && (
@@ -184,14 +202,14 @@ export default function SignupPage() {
                 <div className="space-y-2">
                   <Label htmlFor="lastName">Last Name</Label>
                   <div className="relative">
-                    <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <Input
                       id="lastName"
                       name="lastName"
                       placeholder="Enter last name"
                       value={formData.lastName}
                       onChange={handleChange}
-                      className={`pl-10 ${errors.lastName ? 'border-red-500' : ''}`}
+                      className={`pl-12 h-11 ${errors.lastName ? 'border-red-500' : ''}`}
                     />
                   </div>
                   {errors.lastName && (
@@ -205,10 +223,10 @@ export default function SignupPage() {
               </div>
 
               {/* Email Field */}
-              <div className="space-y-2">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <Label htmlFor="email">Email Address</Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
                     id="email"
                     name="email"
@@ -216,7 +234,7 @@ export default function SignupPage() {
                     placeholder="Enter your email"
                     value={formData.email}
                     onChange={handleChange}
-                    className={`pl-10 ${errors.email ? 'border-red-500' : ''}`}
+                    className={`pl-12 h-11 ${errors.email ? 'border-red-500' : ''}`}
                   />
                 </div>
                 {errors.email && (
@@ -229,18 +247,18 @@ export default function SignupPage() {
               </div>
 
               {/* Contact and Role */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div style={{ display: 'grid', gap: 24, gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))' }}>
                 <div className="space-y-2">
                   <Label htmlFor="contactNumber">Contact Number</Label>
                   <div className="relative">
-                    <Phone className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <Input
                       id="contactNumber"
                       name="contactNumber"
                       placeholder="+1 (555) 123-4567"
                       value={formData.contactNumber}
                       onChange={handleChange}
-                      className={`pl-10 ${errors.contactNumber ? 'border-red-500' : ''}`}
+                      className={`pl-12 h-11 ${errors.contactNumber ? 'border-red-500' : ''}`}
                     />
                   </div>
                   {errors.contactNumber && (
@@ -255,11 +273,9 @@ export default function SignupPage() {
                 <div className="space-y-2">
                   <Label htmlFor="role">Select Role</Label>
                   <Select onValueChange={handleRoleChange}>
-                    <SelectTrigger className={`${errors.role ? 'border-red-500' : ''}`}>
-                      <div className="flex items-center">
-                        <Users className="h-4 w-4 text-gray-400 mr-2" />
-                        <SelectValue placeholder="Choose your role" />
-                      </div>
+                    <SelectTrigger className={`h-11 ${errors.role ? 'border-red-500' : ''} flex items-center pl-3 pr-3`}> {/* icon already outside input text */}
+                      <Users className="h-4 w-4 text-gray-400 mr-2" />
+                      <SelectValue placeholder="Choose your role" />
                     </SelectTrigger>
                     <SelectContent>
                       {roleOptions.map((option) => (
@@ -283,17 +299,17 @@ export default function SignupPage() {
               </div>
 
               {/* Address Field */}
-              <div className="space-y-2">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <Label htmlFor="address">Address</Label>
                 <div className="relative">
-                  <MapPin className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <MapPin className="absolute left-3 top-5 h-4 w-4 text-gray-400" />
                   <Textarea
                     id="address"
                     name="address"
                     placeholder="Enter your complete address"
                     value={formData.address}
                     onChange={handleChange}
-                    className={`pl-10 min-h-[80px] resize-none ${errors.address ? 'border-red-500' : ''}`}
+                    className={`pl-12 pt-3 min-h-[96px] leading-relaxed resize-none ${errors.address ? 'border-red-500' : ''}`}
                   />
                 </div>
                 {errors.address && (
@@ -306,11 +322,11 @@ export default function SignupPage() {
               </div>
 
               {/* Password Fields */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div style={{ display: 'grid', gap: 24, gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))' }}>
                 <div className="space-y-2">
                   <Label htmlFor="password">Password</Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <Input
                       id="password"
                       name="password"
@@ -318,12 +334,12 @@ export default function SignupPage() {
                       placeholder="Create password"
                       value={formData.password}
                       onChange={handleChange}
-                      className={`pl-10 pr-10 ${errors.password ? 'border-red-500' : ''}`}
+                      className={`pl-12 pr-10 h-11 ${errors.password ? 'border-red-500' : ''}`}
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                     >
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
@@ -340,7 +356,7 @@ export default function SignupPage() {
                 <div className="space-y-2">
                   <Label htmlFor="retypePassword">Retype Password</Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <Input
                       id="retypePassword"
                       name="retypePassword"
@@ -348,12 +364,12 @@ export default function SignupPage() {
                       placeholder="Confirm password"
                       value={formData.retypePassword}
                       onChange={handleChange}
-                      className={`pl-10 pr-10 ${errors.retypePassword ? 'border-red-500' : ''}`}
+                      className={`pl-12 pr-10 h-11 ${errors.retypePassword ? 'border-red-500' : ''}`}
                     />
                     <button
                       type="button"
                       onClick={() => setShowRetypePassword(!showRetypePassword)}
-                      className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                     >
                       {showRetypePassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
@@ -368,10 +384,18 @@ export default function SignupPage() {
                 </div>
               </div>
 
-              <Button 
-                type="submit" 
-                className="w-full bg-green-500 hover:bg-green-600 text-white py-3"
+              <Button
+                type="submit"
                 disabled={isLoading}
+                style={{
+                  width: '100%',
+                  background: '#04BE42',
+                  color: '#fff',
+                  height: 48,
+                  fontSize: 14,
+                  fontWeight: 500,
+                  letterSpacing: '.5px'
+                }}
               >
                 {isLoading ? (
                   <div className="flex items-center space-x-2">
@@ -383,12 +407,9 @@ export default function SignupPage() {
                 )}
               </Button>
 
-              <p className="text-center text-sm text-gray-600">
+              <p style={{ textAlign: 'center', fontSize: 12, color: '#64748b', paddingTop: 4 }}>
                 Already have an account?{' '}
-                <Link 
-                  href="/auth/login" 
-                  className="font-medium text-green-600 hover:text-green-700 transition-colors"
-                >
+                <Link href="/auth/login" style={{ fontWeight: 500, color: '#16a34a' }}>
                   Sign in
                 </Link>
               </p>
