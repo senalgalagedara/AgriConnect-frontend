@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { User, Mail, Phone, MapPin, UserCheck } from 'lucide-react';
 import { CreateUserData, UserRole  } from '@/interface/User';
 
@@ -6,9 +6,11 @@ import { CreateUserData, UserRole  } from '@/interface/User';
 interface UserFormProps {
   onSubmit: (userData: CreateUserData) => void;
   onCancel: () => void;
+  initialValues?: Partial<CreateUserData>;
+  submitLabel?: string;
 }
 
-const UserForm = ({ onSubmit, onCancel }: UserFormProps) => {
+const UserForm = ({ onSubmit, onCancel, initialValues, submitLabel }: UserFormProps) => {
   const [formData, setFormData] = useState<CreateUserData>({
     name: '',
     email: '',
@@ -16,6 +18,17 @@ const UserForm = ({ onSubmit, onCancel }: UserFormProps) => {
     role: 'consumer',
     address: '',
   });
+
+  // initialize with provided values for edit mode
+  useEffect(() => {
+    if (initialValues) {
+      setFormData(prev => ({
+        ...prev,
+        ...initialValues,
+        role: (initialValues.role as any) || 'consumer',
+      }));
+    }
+  }, [initialValues]);
   
   const [errors, setErrors] = useState<Partial<CreateUserData>>({});
 
@@ -70,7 +83,7 @@ const UserForm = ({ onSubmit, onCancel }: UserFormProps) => {
     <div style={containerStyle}>
       <div style={headerStyle}>
         <UserCheck size={28} style={{color: '#2563eb', marginRight: 12}} />
-        <h2 style={titleStyle}>Add New User</h2>
+        <h2 style={titleStyle}>{submitLabel || 'Add New User'}</h2>
       </div>
 
       <form onSubmit={handleSubmit} style={{display: 'grid', gap: 16}}>
@@ -111,7 +124,7 @@ const UserForm = ({ onSubmit, onCancel }: UserFormProps) => {
 
         <div style={actionsStyle}>
           <button type="button" onClick={onCancel} style={cancelBtnStyle}>Cancel</button>
-          <button type="submit" style={submitBtnStyle}>Add User</button>
+          <button type="submit" style={submitBtnStyle}>{submitLabel || 'Add User'}</button>
         </div>
       </form>
     </div>

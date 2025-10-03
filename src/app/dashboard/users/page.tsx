@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { User, CreateUserData } from '@/interface/User';
 import UserSidebar from '@/components/UserSidebar';
 import Dashboard from '@/components/Dashboard';
@@ -8,58 +8,113 @@ import UserList from '@/components/UserList';
 import UserForm from '@/components/UserForm';
 import Sidebar from "@/components/sidebar";
 
+// Use relative /api by default (proxied via next.config.ts rewrites)
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? '/api';
+
 export default function Home() {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [users, setUsers] = useState<User[]>([
-    {
-      id: '1',
-      name: 'John Smith',
-      email: 'john.smith@email.com',
-      phone: '+1 (555) 123-4567',
-      role: 'farmer',
-      status: 'active',
-      createdAt: new Date('2024-01-15'),
-      address: '123 Farm Road, Green Valley, CA 94534',
-    },
-    {
-      id: '2',
-      name: 'Sarah Johnson',
-      email: 'sarah.johnson@email.com',
-      phone: '+1 (555) 987-6543',
-      role: 'consumer',
-      status: 'active',
-      createdAt: new Date('2024-01-20'),
-      address: '456 Oak Street, Downtown, CA 94105',
-    },
-    {
-      id: '3',
-      name: 'Mike Rodriguez',
-      email: 'mike.rodriguez@email.com',
-      phone: '+1 (555) 456-7890',
-      role: 'driver',
-      status: 'active',
-      createdAt: new Date('2024-01-25'),
-      address: '789 Pine Avenue, Riverside, CA 92501',
-    },
-  ]);
-  
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
 
-  const handleAddUser = (userData: CreateUserData) => {
-    const newUser: User = {
-      id: Date.now().toString(),
-      ...userData,
-      status: 'active',
-      createdAt: new Date(),
+  const normalizeUser = (raw: any): User => {
+    return {
+      id: String(raw.id ?? ''),
+      name: String(raw.name ?? ''),
+      email: String(raw.email ?? ''),
+      phone: String(raw.phone ?? ''),
+      role: raw.role as User['role'],
+      status: (raw.status ?? 'active') as User['status'],
+      createdAt: raw.createdAt instanceof Date ? raw.createdAt : new Date(raw.created_at ?? raw.createdAt ?? Date.now()),
+      address: String(raw.address ?? ''),
     };
-    
-    setUsers(prevUsers => [...prevUsers, newUser]);
-    setShowSuccessMessage(true);
-    setActiveTab('users');
-    
-    setTimeout(() => {
-      setShowSuccessMessage(false);
-    }, 3000);
+  };
+
+  useEffect(() => {
+    (async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const res = await fetch(`${API_BASE_URL}/users`, { cache: 'no-store' });
+        if (!res.ok) throw new Error('Failed to load users');
+        const data = await res.json();
+        const list = Array.isArray(data?.data ?? data) ? (data.data ?? data) : [];
+        setUsers(list.map(normalizeUser));
+      } catch (e: any) {
+        setError(e?.message || 'Failed to load users');
+        setUsers([]);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  const handleAddUser = async (userData: CreateUserData) => {
+    try {
+      setError(null);
+      const res = await fetch(`${API_BASE_URL}/users`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData),
+      });
+
+      if (!res.ok) {
+        const errBody = await res.text();
+        throw new Error(errBody || 'Failed to create user');
+      }
+
+      const created = await res.json();
+      const createdUser = normalizeUser(created?.data ?? created);
+      setUsers(prev => [...prev, createdUser]);
+      setShowSuccessMessage(true);
+      setActiveTab('users');
+      setTimeout(() => setShowSuccessMessage(false), 3000);
+    } catch (e: any) {
+      setError(e?.message || 'Failed to create user');
+    }
+  };
+
+  const handleStartEdit = (user: User) => {
+    setEditingUser(user);
+    setActiveTab('edit-user');
+  };
+
+  const handleUpdateUser = async (userId: string, updates: CreateUserData) => {
+    try {
+      setError(null);
+      const res = await fetch(`${API_BASE_URL}/users/${userId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+      if (!res.ok) {
+        const body = await res.text();
+        throw new Error(body || 'Failed to update user');
+      }
+      const updated = await res.json();
+      const updUser = normalizeUser(updated?.data ?? updated);
+      setUsers(prev => prev.map(u => (u.id === userId ? updUser : u)));
+      setEditingUser(null);
+      setActiveTab('users');
+    } catch (e: any) {
+      setError(e?.message || 'Failed to update user');
+    }
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    try {
+      setError(null);
+      const res = await fetch(`${API_BASE_URL}/users/${userId}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const body = await res.text();
+        throw new Error(body || 'Failed to delete user');
+      }
+      setUsers(prev => prev.filter(u => u.id !== userId));
+    } catch (e: any) {
+      setError(e?.message || 'Failed to delete user');
+    }
   };
 
   const renderContent = () => {
@@ -67,12 +122,27 @@ export default function Home() {
       case 'dashboard':
         return <Dashboard users={users} onNavigate={setActiveTab} />;
       case 'users':
-        return <UserList users={users} />;
+        return <UserList users={users} onEdit={handleStartEdit} onDelete={(u) => handleDeleteUser(u.id)} />;
       case 'add-user':
         return (
           <UserForm 
             onSubmit={handleAddUser}
             onCancel={() => setActiveTab('dashboard')}
+          />
+        );
+      case 'edit-user':
+        return (
+          <UserForm
+            onSubmit={(data) => editingUser && handleUpdateUser(editingUser.id, data)}
+            onCancel={() => { setEditingUser(null); setActiveTab('users'); }}
+            initialValues={editingUser ? {
+              name: editingUser.name,
+              email: editingUser.email,
+              phone: editingUser.phone,
+              role: editingUser.role,
+              address: editingUser.address,
+            } : undefined}
+            submitLabel="Update User"
           />
         );
       case 'analytics':
@@ -108,6 +178,12 @@ export default function Home() {
 
       <div style={{flex: 1}}>
         <main style={{padding: 32}}>
+          {loading && (
+            <div style={{marginBottom: 16, background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1e40af', padding: '10px 14px', borderRadius: 8}}>Loading users...</div>
+          )}
+          {error && (
+            <div style={{marginBottom: 16, background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', padding: '10px 14px', borderRadius: 8}}>{error}</div>
+          )}
           {showSuccessMessage && (
             <div style={{marginBottom: 24, background: '#ecfdf5', border: '1px solid #bbf7d0', color: '#065f46', padding: '12px 16px', borderRadius: 8, boxShadow: '0 4px 8px rgba(0,0,0,0.04)'}}>
               <p style={{fontWeight: 600}}>Success! User has been added successfully.</p>

@@ -4,9 +4,11 @@ import { User } from '@/interface/User';
 
 interface UserCardProps {
   user: User;
+  onEdit?: (user: User) => void;
+  onDelete?: (user: User) => void;
 }
 
-const UserCard = ({ user }: UserCardProps) => {
+const UserCard = ({ user, onEdit, onDelete }: UserCardProps) => {
   const getRoleColor = (role: string) => {
     switch (role) {
       case 'farmer': return 'bg-green-100 text-green-800';
@@ -27,6 +29,15 @@ const UserCard = ({ user }: UserCardProps) => {
   const nameStyle: React.CSSProperties = { fontSize: 18, fontWeight: 600, color: '#111827', marginBottom: 6 };
   const badgeStyle = (bg: string, color: string): React.CSSProperties => ({ padding: '6px 10px', borderRadius: 9999, fontSize: 13, fontWeight: 600, background: bg, color });
   const infoRowStyle: React.CSSProperties = { display: 'flex', alignItems: 'center', color: '#6b7280', gap: 10, marginBottom: 8 };
+  const actionsRowStyle: React.CSSProperties = { display: 'flex', gap: 10, marginTop: 12 };
+  const btnStyle = (bg: string, color: string): React.CSSProperties => ({ padding: '8px 12px', borderRadius: 8, background: bg, color, border: '1px solid rgba(0,0,0,0.06)', cursor: 'pointer' });
+
+  // Be tolerant of backend returning ISO strings for dates
+  const joinedDate: Date | null = (() => {
+    const raw: unknown = (user as any).createdAt;
+    const date = raw instanceof Date ? raw : new Date(raw as any);
+    return isNaN(date.getTime()) ? null : date;
+  })();
 
   return (
     <div style={containerStyle}>
@@ -48,7 +59,13 @@ const UserCard = ({ user }: UserCardProps) => {
         <div style={infoRowStyle}><Mail size={14} /> <span style={{fontSize: 13}}>{user.email}</span></div>
         <div style={infoRowStyle}><Phone size={14} /> <span style={{fontSize: 13}}>{user.phone}</span></div>
         <div style={infoRowStyle}><MapPin size={14} /> <span style={{fontSize: 13}}>{user.address}</span></div>
-        <div style={infoRowStyle}><Calendar size={14} /> <span style={{fontSize: 13}}>Joined {user.createdAt.toLocaleDateString()}</span></div>
+        {joinedDate && (
+          <div style={infoRowStyle}><Calendar size={14} /> <span style={{fontSize: 13}}>Joined {joinedDate.toLocaleDateString()}</span></div>
+        )}
+        <div style={actionsRowStyle}>
+          <button onClick={() => onEdit?.(user)} style={btnStyle('#eff6ff', '#1e40af')}>Edit</button>
+          <button onClick={() => onDelete?.(user)} style={btnStyle('#fef2f2', '#991b1b')}>Delete</button>
+        </div>
       </div>
     </div>
   );
