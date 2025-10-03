@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { apiRequest } from '../../lib/api';
 import Link from 'next/link';
 import { CheckCircle, Download, Home, Truck } from 'lucide-react';
 import Navbar from '../../components/NavbarHome';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:5000/api';
 
 interface CartItem {
   id: string;
@@ -55,12 +56,11 @@ export default function InvoicePage() {
             const numericId = Number(possibleId);
             if (Number.isFinite(numericId) && numericId > 0) {
               // backend route: GET /orders/:orderId
-              const fresh = await apiRequest<any>(`/orders/${numericId}`);
-              if (fresh) {
-                // Map possible backend shapes to our Transaction shape
-                const backendOrder = fresh;
-                const itemsFromBackend =
-                  backendOrder.order_items || backendOrder.items || backendOrder.items_list || [];
+              const response = await fetch(`${API_BASE}/orders/${numericId}`);
+              if (response.ok) {
+                const fresh = await response.json();
+                const backendOrder = fresh.data || fresh;
+                const itemsFromBackend = backendOrder.items || [];
 
                 const mappedItems: CartItem[] = (itemsFromBackend || []).map((it: any, idx: number) => ({
                   id: String(it.product_id ?? it.id ?? idx),
@@ -85,7 +85,7 @@ export default function InvoicePage() {
             }
           } catch (e) {
             // ignore fetch errors and fall back to local copy
-            // console.error('Failed to fetch fresh order', e)
+            console.error('Failed to fetch fresh order', e);
           }
 
           setTransaction(normalized);
