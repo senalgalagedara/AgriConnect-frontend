@@ -10,6 +10,7 @@ interface ItemCardProps {
   price?: MaybeNumber;
   suppliers?: MaybeNumber;
   category?: string;
+  href?: string;
 }
 
 const toNum = (v: MaybeNumber, fallback = 0): number => {
@@ -25,6 +26,7 @@ export default function ItemCard({
   price = 0,
   suppliers = 0,
   category = "General",
+  href,
 }: ItemCardProps) {
   const stockNum = toNum(stock);
   const priceNum = toNum(price);
@@ -38,8 +40,19 @@ export default function ItemCard({
 
   const stockStatus = getStockStatus(stockNum);
 
+  const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    if (href) {
+      return (
+        <Link href={href} className="item-card">
+          {children}
+        </Link>
+      );
+    }
+    return <div className="item-card">{children}</div>;
+  };
+
   return (
-    <Link href={`/dashboard/inventory/1/${id}`} className="item-card">
+    <Wrapper>
       <div className="card-header">
         <h3 className="product-name">{name}</h3>
         <span className="category-badge">{category}</span>
@@ -178,6 +191,6 @@ export default function ItemCard({
           }
         }
       `}</style>
-    </Link>
+    </Wrapper>
   );
 }

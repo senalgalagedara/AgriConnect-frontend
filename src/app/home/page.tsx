@@ -26,7 +26,7 @@ interface CartItem {
 
 const API_BASE_URL = "http://localhost:5000/api";
 const WESTERN_PROVINCE_ID = 1;
-const USER_ID = 1; // Demo user ID
+const USER_ID = 1; 
 
 export default function HomePage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -38,12 +38,20 @@ export default function HomePage() {
   const [addingToCart, setAddingToCart] = useState<number | null>(null);
 
   const categories = [
-    { id: "all", name: "All Products", icon: "🏪" },
-    { id: "Vegetables", name: "Vegetables", icon: "🥕" },
-    { id: "Fruits", name: "Fruits", icon: "🍎" },
-    { id: "Leafy Greens", name: "Leafy Greens", icon: "🥬" },
-    { id: "Root Vegetables", name: "Root Vegetables", icon: "🥔" },
+    { id: "all", name: "All Products" },
+    { id: "Vegetables", name: "Vegetables" },
+    { id: "Fruits", name: "Fruits" },
+    { id: "Leafy Greens", name: "Leafy Greens" },
+    { id: "Root Vegetables", name: "Root Vegetables" },
   ];
+
+  const categoryImages: Record<string, string> = {
+    "All Products": "/images/all-products.png",
+    "Vegetables": "/images/vegetables.png",
+    "Fruits": "/images/fruits.png",
+    "Leafy Greens": "/images/leafy-greens.png",
+    "Root Vegetables": "/images/root-vegetables.png",
+  };
 
   useEffect(() => {
     fetchProducts();
@@ -93,8 +101,15 @@ export default function HomePage() {
   const addToCart = async (product: Product) => {
     setAddingToCart(product.id);
 
+    console.log('Attempting to add to cart:', product);
+
+    if (!product.id || typeof product.id !== 'number' || product.id <= 0) {
+      alert('Invalid product. Cannot add to cart.');
+      setAddingToCart(null);
+      return;
+    }
+
     try {
-      // Add to backend cart
       const response = await fetch(`${API_BASE_URL}/cart/${USER_ID}/items`, {
         method: 'POST',
         headers: {
@@ -107,7 +122,6 @@ export default function HomePage() {
       });
 
       if (response.ok) {
-        // Update local cart
         const existingItemIndex = cartItems.findIndex(item => item.id === product.id);
         let updatedCart;
 
@@ -131,10 +145,13 @@ export default function HomePage() {
         setCartItems(updatedCart);
         saveCartToLocalStorage(updatedCart);
       } else {
-        console.error('Failed to add item to cart');
+        const errorText = await response.text();
+        console.error('Failed to add item to cart:', errorText);
+        alert('Failed to add item to cart. ' + errorText);
       }
     } catch (error) {
       console.error('Error adding to cart:', error);
+      alert('Error adding to cart. See console for details.');
     } finally {
       setAddingToCart(null);
     }
@@ -144,15 +161,6 @@ export default function HomePage() {
     return cartItems.reduce((total, item) => total + item.qty, 0);
   };
 
-  const getProductImage = (categoryName: string) => {
-    switch (categoryName) {
-      case "Vegetables": return "🥕";
-      case "Fruits": return "🍎";
-      case "Leafy Greens": return "🥬";
-      case "Root Vegetables": return "🥔";
-      default: return "🌱";
-    }
-  };
 
   if (loading) {
     return <LoadingScreen />;
@@ -162,54 +170,18 @@ export default function HomePage() {
     <div className="home-container">
       <Navbar cartItemCount={getCartItemCount()} />
 
-      {/* Hero Section */}
       <section className="hero-section">
         <div className="hero-content">
-          <div className="hero-text">
-            <h1>Fresh from Farm to Your Table</h1>
-            <p>Discover premium quality fruits and vegetables sourced directly from local farmers. Fresh, organic, and delivered to your doorstep.</p>
-            <div className="hero-features">
-              <div className="hero-feature">
-                <Truck size={20} />
-                <span>Free Delivery</span>
-              </div>
-              <div className="hero-feature">
-                <Shield size={20} />
-                <span>Quality Assured</span>
-              </div>
-              <div className="hero-feature">
-                <Leaf size={20} />
-                <span>Farm Fresh</span>
-              </div>
-            </div>
+          <div className="hero-left">
+            <h1 className="hero-title">Don’t miss our daily amazing deals.</h1>
+            <p className="hero-subtitle">Save up to 60% off on your first order</p>
           </div>
-          <div className="hero-image">
-            <div className="hero-image-placeholder">
-              🥕🍎🥬🍊🥔
-            </div>
+          <div className="hero-right">
+            <img src="/image2.png" alt="Fresh produce" className="hero-img" />
           </div>
         </div>
       </section>
 
-      {/* Search Section */}
-      <section className="search-section">
-        <div className="search-container">
-          <div className="search-bar">
-            <div className="search-input-container">
-              <Search size={20} className="search-icon" />
-              <input
-                type="text"
-                placeholder="Search for fresh fruits & vegetables..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="search-input"
-              />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Categories Filter */}
       <section className="categories-section">
         <div className="categories-container">
           <h2 className="categories-title">Shop by Category</h2>
@@ -220,15 +192,21 @@ export default function HomePage() {
                 onClick={() => setSelectedCategory(category.id)}
                 className={`category-button ${selectedCategory === category.id ? 'active' : ''}`}
               >
-                <span className="category-icon">{category.icon}</span>
+                <div className="category-image-placeholder">
+                  {categoryImages[category.name] && (
+                    <img
+                      src={categoryImages[category.name]}
+                      alt={category.name}
+                      style={{ width: '64px', height: '64px', objectFit: 'contain' }}
+                    />
+                  )}
+                </div>
                 <span className="category-name">{category.name}</span>
               </button>
             ))}
           </div>
         </div>
       </section>
-
-      {/* Products Section */}
       <section className="products-section">
         <div className="products-container">
           <div className="products-header">
@@ -257,16 +235,18 @@ export default function HomePage() {
                   product={product}
                   onAddToCart={() => addToCart(product)}
                   isAddingToCart={addingToCart === product.id}
-                  getProductImage={getProductImage}
+                  getProductImage={(category) => {
+                    // fallback to emoji if no image
+                    const emojiMap: Record<string, string> = {
+                      "Vegetables": "🥕",
+                      "Fruits": "🍎",
+                      "Leafy Greens": "🥬",
+                      "Root Vegetables": "🥔",
+                    };
+                    // You can add images for each category if you want
+                    return emojiMap[category] || "🌱";
+                  }}
                 />
-                <Link key={product.id} href={`/product/${product.id}`}>
-                  <ProductCard
-                    product={product}
-                    onAddToCart={() => addToCart(product)}
-                    isAddingToCart={addingToCart === product.id}
-                    getProductImage={getProductImage}
-                  />
-                </Link>
               ))}
             </div>
 
@@ -274,28 +254,67 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Footer */}
       <footer className="site-footer">
-        <div className="footer-content">
-          <div className="footer-section">
-            <h3>AgriConnect</h3>
-            <p>Connecting farmers with consumers for fresh, quality produce.</p>
+        <div className="footer-main">
+          <div className="footer-col footer-logo-info">
+            <div className="footer-logo-row">
+              <div className="footer-logo-placeholder">
+                <img src="/logo.png" alt="AgriConnect Logo" style={{ width: '48px', height: '48px', objectFit: 'contain' }} />
+              </div>
+              <div>
+                <span className="footer-brand">AgriConnect</span>
+                <div className="footer-brand-sub">GROCERY</div>
+              </div>
+            </div>
+            <div className="footer-info-list">
+              <div className="footer-info-item"><span className="footer-info-icon">📍</span> <span>Address: 123 Green Lane, Colombo</span></div>
+              <div className="footer-info-item"><span className="footer-info-icon">📞</span> <span>Call Us: 0112-345678</span></div>
+              <div className="footer-info-item"><span className="footer-info-icon">✉️</span> <span>Email: agriconnect@contact.com</span></div>
+              <div className="footer-info-item"><span className="footer-info-icon">⏰</span> <span>Work hours: 8:00 - 20:00, Mon - Sat</span></div>
+            </div>
           </div>
-          <div className="footer-section">
-            <h4>Quick Links</h4>
-            <Link href="/about">About Us</Link>
-            <Link href="/contact">Contact</Link>
-            <Link href="/faq">FAQ</Link>
+          {/* Account */}
+          <div className="footer-col">
+            <div className="footer-col-title">Account</div>
+            <ul className="footer-link-list">
+              <li><Link href="/wishlist">Wishlist</Link></li>
+              <li><Link href="/cart">Cart</Link></li>
+              <li><Link href="/orders">Track Order</Link></li>
+              <li><Link href="/shipping">Shipping Details</Link></li>
+            </ul>
           </div>
-          <div className="footer-section">
-            <h4>Support</h4>
-            <Link href="/help">Help Center</Link>
-            <Link href="/shipping">Shipping Info</Link>
-            <Link href="/returns">Returns</Link>
+          {/* Useful Links */}
+          <div className="footer-col">
+            <div className="footer-col-title">Useful links</div>
+            <ul className="footer-link-list">
+              <li><Link href="/about">About Us</Link></li>
+              <li><Link href="/contact">Contact</Link></li>
+              <li><Link href="/deals">Hot deals</Link></li>
+              <li><Link href="/promotions">Promotions</Link></li>
+              <li><Link href="/products">New products</Link></li>
+            </ul>
+          </div>
+          {/* Help Center */}
+          <div className="footer-col">
+            <div className="footer-col-title">Help Center</div>
+            <ul className="footer-link-list">
+              <li><Link href="/payments">Payments</Link></li>
+              <li><Link href="/refund">Refund</Link></li>
+              <li><Link href="/checkout">Checkout</Link></li>
+              <li><Link href="/shipping">Shipping</Link></li>
+              <li><Link href="/faq">Q&amp;A</Link></li>
+              <li><Link href="/privacy">Privacy Policy</Link></li>
+            </ul>
           </div>
         </div>
-        <div className="footer-bottom">
-          <p>&copy; 2024 AgriConnect. All rights reserved.</p>
+        <div className="footer-bottom-row">
+          <div className="footer-copyright">© 2025 AgriConnect, All rights reserved</div>
+          <div className="footer-social-row">
+            <a href="#" className="footer-social-icon" aria-label="Facebook"><svg width="28" height="28" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#22c55e"/><path d="M15.5 8.5h-2a.5.5 0 0 0-.5.5v2h2.5l-.5 2H13v6h-2v-6H9v-2h2v-1.5A2.5 2.5 0 0 1 13.5 7h2v1.5Z" fill="#fff"/></svg></a>
+            <a href="#" className="footer-social-icon" aria-label="LinkedIn"><svg width="28" height="28" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#22c55e"/><path d="M8.5 10.5v6h-2v-6h2Zm-1-1.5a1 1 0 1 1 0-2 1 1 0 0 1 0 2Zm3 1.5v6h2v-3c0-.8.7-1.5 1.5-1.5s1.5.7 1.5 1.5v3h2v-3.5c0-1.7-1.3-3-3-3s-3 1.3-3 3Z" fill="#fff"/></svg></a>
+            <a href="#" className="footer-social-icon" aria-label="Instagram"><svg width="28" height="28" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#22c55e"/><path d="M12 9.5A2.5 2.5 0 1 0 12 14.5a2.5 2.5 0 0 0 0-5Zm4.5-1a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM12 7a5 5 0 0 1 5 5v2a5 5 0 0 1-5 5 5 5 0 0 1-5-5v-2a5 5 0 0 1 5-5Z" fill="#fff"/></svg></a>
+            <a href="#" className="footer-social-icon" aria-label="Twitter"><svg width="28" height="28" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#22c55e"/><path d="M17.5 9.5c-.4.2-.8.3-1.2.4.4-.2.7-.6.8-1-.4.2-.8.4-1.2.5a2.1 2.1 0 0 0-3.6 1.9c-1.7-.1-3.2-.9-4.2-2.1-.2.4-.3.8-.3 1.2 0 .8.4 1.5 1.1 1.9-.4 0-.7-.1-1-.3v.1c0 1.1.8 2 1.8 2.2-.2.1-.4.1-.7.1-.1 0-.2 0-.3-.1.2.7.9 1.2 1.7 1.2A4.2 4.2 0 0 1 7 16.3c-.3 0-.5 0-.7-.1A6 6 0 0 0 10.3 17c3.6 0 5.6-3 5.6-5.6v-.3c.4-.3.7-.6.9-1Z" fill="#fff"/></svg></a>
+          </div>
         </div>
       </footer>
 
@@ -307,8 +326,10 @@ export default function HomePage() {
 
         /* Hero Section */
         .hero-section {
-          background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
-          padding: 4rem 2rem;
+          background: #e6f7ef url('/image1.png') no-repeat center center;
+          background-size: cover;
+          padding: 0rem;
+          padding-left: 2.5rem;
         }
 
         .hero-content {
@@ -320,40 +341,82 @@ export default function HomePage() {
           align-items: center;
         }
 
-        .hero-text h1 {
+        .hero-left {
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+        }
+
+        .hero-title {
           font-size: 3rem;
           color: #1f2937;
-          margin-bottom: 1rem;
-          line-height: 1.2;
+          margin-bottom: 1.5rem;
+          font-weight: 700;
+          line-height: 1.1;
         }
 
-        .hero-text p {
-          font-size: 1.2rem;
+        .hero-subtitle {
+          font-size: 1.3rem;
           color: #6b7280;
-          margin-bottom: 2rem;
-          line-height: 1.6;
+          margin-bottom: 2.5rem;
         }
 
-        .hero-features {
-          display: flex;
-          gap: 2rem;
+        .subscribe-form {
+          width: 100%;
+          max-width: 500px;
         }
 
-        .hero-feature {
+        .subscribe-input-wrapper {
           display: flex;
           align-items: center;
-          gap: 0.5rem;
-          color: #15803d;
-          font-weight: 600;
+          background: #fff;
+          border-radius: 12px;
+          box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+          padding: 0.5rem 0.5rem 0.5rem 1rem;
         }
 
-        .hero-image-placeholder {
-          font-size: 8rem;
-          text-align: center;
-          background: white;
-          border-radius: 20px;
-          padding: 3rem;
-          box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        .subscribe-icon {
+          margin-right: 0.5rem;
+          display: flex;
+          align-items: center;
+        }
+
+        .subscribe-input {
+          flex: 1;
+          border: none;
+          outline: none;
+          font-size: 1rem;
+          padding: 0.75rem 1rem;
+          border-radius: 8px;
+          background: transparent;
+        }
+
+        .subscribe-btn {
+          background: #22c55e;
+          color: #fff;
+          border: none;
+          border-radius: 8px;
+          padding: 0.75rem 2rem;
+          font-size: 1rem;
+          font-weight: 600;
+          margin-left: 0.5rem;
+          cursor: pointer;
+          transition: background 0.2s;
+        }
+
+        .subscribe-btn:hover {
+          background: #16a34a;
+        }
+
+        .hero-right {
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+        }
+
+        .hero-img {
+          max-width: 600px;
+          width: 100%;
         }
 
         /* Search Section */
@@ -430,13 +493,14 @@ export default function HomePage() {
           background: #f9fafb;
           border: 2px solid #e5e7eb;
           border-radius: 16px;
-          padding: 2rem 1rem;
+          padding: 2rem 1rem 1.2rem 1rem;
           cursor: pointer;
           transition: all 0.3s;
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 1rem;
+          gap: 1.2rem;
+          min-height: 220px;
         }
 
         .category-button:hover,
@@ -447,13 +511,22 @@ export default function HomePage() {
           box-shadow: 0 4px 15px rgba(21,128,61,0.2);
         }
 
-        .category-icon {
-          font-size: 3rem;
+        .category-image-placeholder {
+          width: 80px;
+          height: 80px;
+          background: #fff;
+          border-radius: 12px;
+          margin-bottom: 0.5rem;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.04);
         }
 
         .category-name {
           font-weight: 600;
           color: #374151;
+          font-size: 1.1rem;
         }
 
         /* Products Section */
@@ -517,67 +590,145 @@ export default function HomePage() {
 
         /* Footer */
         .site-footer {
-          background: #1f2937;
-          color: white;
+          background: #fff;
+          color: #222;
           padding: 3rem 2rem 1rem;
+          border-top: 1px solid #e5e7eb;
         }
 
-        .footer-content {
+        .footer-main {
           max-width: 1200px;
           margin: 0 auto;
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-          gap: 2rem;
+          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+          gap: 2.5rem;
+          align-items: flex-start;
         }
 
-        .footer-section h3,
-        .footer-section h4 {
-          margin-bottom: 1rem;
-          color: #15803d;
+        .footer-col {
+          min-width: 180px;
         }
 
-        .footer-section a {
-          color: #d1d5db;
+        .footer-logo-row {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+          margin-bottom: 1.2rem;
+        }
+
+        .footer-logo-placeholder {
+          width: 48px;
+          height: 48px;
+          background: #e0f7e9;
+          border-radius: 12px;
+        }
+
+        .footer-brand {
+          font-size: 2rem;
+          font-weight: 700;
+          color: #22c55e;
+        }
+
+        .footer-brand-sub {
+          color: #bdbdbd;
+          font-size: 1rem;
+          font-weight: 500;
+        }
+
+        .footer-info-list {
+          margin-top: 1.2rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+
+        .footer-info-item {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          color: #222;
+          font-size: 1rem;
+        }
+
+        .footer-info-icon {
+          font-size: 1.2rem;
+          color: #22c55e;
+        }
+
+        .footer-col-title {
+          font-size: 1.3rem;
+          font-weight: 700;
+          color: #222;
+          margin-bottom: 1.2rem;
+        }
+
+        .footer-link-list {
+          list-style: none;
+          padding: 0;
+          margin: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 0.7rem;
+        }
+
+        .footer-link-list a {
+          color: #222;
           text-decoration: none;
-          display: block;
-          margin-bottom: 0.5rem;
+          font-size: 1rem;
+          transition: color 0.2s;
         }
 
-        .footer-section a:hover {
-          color: #15803d;
+        .footer-link-list a:hover {
+          color: #22c55e;
         }
 
-        .footer-bottom {
-          text-align: center;
-          margin-top: 2rem;
+        .footer-bottom-row {
+          max-width: 1200px;
+          margin: 2.5rem auto 0 auto;
           padding-top: 2rem;
-          border-top: 1px solid #374151;
-          color: #9ca3af;
+          border-top: 1px solid #e5e7eb;
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          justify-content: space-between;
+          gap: 1.5rem;
+        }
+
+        .footer-copyright {
+          color: #222;
+          font-size: 1rem;
+        }
+
+        .footer-social-row {
+          display: flex;
+          gap: 1.2rem;
+        }
+
+        .footer-social-icon {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 50%;
+          background: none;
+          transition: box-shadow 0.2s;
+        }
+
+        .footer-social-icon:hover {
+          box-shadow: 0 2px 8px #22c55e33;
         }
 
         /* Responsive Design */
-        @media (max-width: 768px) {
+        @media (max-width: 900px) {
           .hero-content {
             grid-template-columns: 1fr;
-            text-align: center;
             gap: 2rem;
           }
-
-          .hero-text h1 {
-            font-size: 2rem;
-          }
-
-          .hero-features {
+          .hero-right {
             justify-content: center;
-            flex-wrap: wrap;
+            margin-top: 2rem;
           }
-
-          .categories-grid {
-            grid-template-columns: repeat(2, 1fr);
-          }
-
-          .products-grid {
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+          .hero-title {
+            font-size: 2rem;
           }
         }
       `}</style>

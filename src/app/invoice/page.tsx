@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { apiRequest } from '../../lib/api';
 import Link from 'next/link';
 import { CheckCircle, Download, Home, Truck } from 'lucide-react';
 import Navbar from '../../components/NavbarHome';
@@ -8,8 +9,8 @@ import Navbar from '../../components/NavbarHome';
 interface CartItem {
   id: string;
   name: string;
-  price: number;
-  qty: number;
+  price: number | string; // normalize on load
+  qty: number | string;   // normalize on load
   unit?: string;
 }
 
@@ -17,7 +18,7 @@ interface Transaction {
   id: string;
   customerName: string;
   email: string;
-  total: number;
+  total: number | string; // normalize on load
   paymentMethod: 'COD' | 'CARD';
   createdAt: string;
   items: CartItem[];
@@ -27,12 +28,74 @@ export default function InvoicePage() {
   const [transaction, setTransaction] = useState<Transaction | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // number coercion helper
+  const num = (v: unknown) => (typeof v === 'number' ? v : Number(v) || 0);
+
   useEffect(() => {
-    const savedInvoice = localStorage.getItem('lastInvoice');
-    if (savedInvoice) {
-      setTransaction(JSON.parse(savedInvoice));
+    try {
+      const savedInvoice = localStorage.getItem('lastInvoice');
+      if (savedInvoice) {
+        const raw = JSON.parse(savedInvoice) as Transaction;
+
+        // Normalize any numeric fields that might be strings
+        const normalized: Transaction = {
+          ...raw,
+          total: num(raw.total),
+          items: (raw.items || []).map((it) => ({
+            ...it,
+            price: num(it.price),
+            qty: num(it.qty),
+          })),
+        };
+
+        // try to fetch authoritative order from backend if we have an integer id
+        (async () => {
+          try {
+            const possibleId = (raw as any).id;
+            const numericId = Number(possibleId);
+            if (Number.isFinite(numericId) && numericId > 0) {
+              // backend route: GET /orders/:orderId
+              const fresh = await apiRequest<any>(`/orders/${numericId}`);
+              if (fresh) {
+                // Map possible backend shapes to our Transaction shape
+                const backendOrder = fresh;
+                const itemsFromBackend =
+                  backendOrder.order_items || backendOrder.items || backendOrder.items_list || [];
+
+                const mappedItems: CartItem[] = (itemsFromBackend || []).map((it: any, idx: number) => ({
+                  id: String(it.product_id ?? it.id ?? idx),
+                  name: it.name ?? it.product_name ?? `Item ${idx + 1}`,
+                  price: Number(it.price ?? it.unit_price ?? it.amount ?? 0),
+                  qty: Number(it.qty ?? it.quantity ?? 1),
+                }));
+
+                const merged: Transaction = {
+                  id: String(backendOrder.id ?? backendOrder.order_no ?? raw.id),
+                  customerName: (raw.customerName ?? (raw as any).customer ?? ''),
+                  email: backendOrder.contact?.email ?? raw.email ?? '',
+                  total: Number(backendOrder.total ?? backendOrder.amount ?? raw.total ?? 0),
+                  paymentMethod: (backendOrder.paymentMethod as 'COD' | 'CARD') ?? raw.paymentMethod ?? 'COD',
+                  createdAt: backendOrder.created_at ?? backendOrder.createdAt ?? raw.createdAt ?? new Date().toISOString(),
+                  items: mappedItems,
+                };
+
+                setTransaction(merged);
+                return;
+              }
+            }
+          } catch (e) {
+            // ignore fetch errors and fall back to local copy
+            // console.error('Failed to fetch fresh order', e)
+          }
+
+          setTransaction(normalized);
+        })();
+      }
+    } catch {
+      setTransaction(null);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
 
   const getProductImage = (name: string) => {
@@ -59,18 +122,18 @@ export default function InvoicePage() {
       month: 'long',
       day: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
     });
   };
 
   const getEstimatedDelivery = () => {
     const now = new Date();
-    const deliveryDate = new Date(now.getTime() + (2 * 24 * 60 * 60 * 1000)); // 2 days from now
+    const deliveryDate = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000); // +2 days
     return deliveryDate.toLocaleDateString('en-US', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
-      day: 'numeric'
+      day: 'numeric',
     });
   };
 
@@ -105,7 +168,7 @@ export default function InvoicePage() {
   return (
     <div className="invoice-page">
       <Navbar cartItemCount={0} />
-      
+
       <div className="invoice-container">
         {/* Success Header */}
         <div className="success-header">
@@ -184,22 +247,30 @@ export default function InvoicePage() {
                 <span>Total</span>
               </div>
               <div className="items-list">
-                {transaction.items.map((item) => (
-                  <div key={item.id} className="item-row">
-                    <div className="item-info">
-                      <span className="item-emoji">{getProductImage(item.name)}</span>
-                      <span className="item-name">{item.name}</span>
+                {transaction.items.map((item) => {
+                  const price = typeof item.price === 'number' ? item.price : Number(item.price) || 0;
+                  const qty = typeof item.qty === 'number' ? item.qty : Number(item.qty) || 0;
+                  return (
+                    <div key={item.id} className="item-row">
+                      <div className="item-info">
+                        <span className="item-emoji">{getProductImage(item.name)}</span>
+                        <span className="item-name">{item.name}</span>
+                      </div>
+                      <span className="item-quantity">
+                        {qty} {item.unit || 'kg'}
+                      </span>
+                      <span className="item-price">Rs. {price.toFixed(2)}</span>
+                      <span className="item-total">Rs. {(price * qty).toFixed(2)}</span>
                     </div>
-                    <span className="item-quantity">{item.qty} {item.unit || 'kg'}</span>
-                    <span className="item-price">Rs. {item.price.toFixed(2)}</span>
-                    <span className="item-total">Rs. {(item.price * item.qty).toFixed(2)}</span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
               <div className="items-footer">
                 <div className="total-row">
                   <span>Order Total:</span>
-                  <span className="total-amount">Rs. {transaction.total.toFixed(2)}</span>
+                  <span className="total-amount">
+                    Rs. {((typeof transaction.total === 'number' ? transaction.total : Number(transaction.total) || 0)).toFixed(2)}
+                  </span>
                 </div>
               </div>
             </div>
@@ -221,8 +292,8 @@ export default function InvoicePage() {
           <div className="thank-you-section">
             <h3>Thank you for choosing AgriConnect!</h3>
             <p>
-              We're committed to bringing you the freshest produce directly from local farmers. 
-              Your support helps our farming community thrive.
+              We're committed to bringing you the freshest produce directly from local farmers. Your support helps our
+              farming community thrive.
             </p>
             <div className="contact-info">
               <p>Questions about your order?</p>
@@ -296,7 +367,7 @@ export default function InvoicePage() {
           background: white;
           border-radius: 16px;
           padding: 3rem 2rem;
-          box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+          box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
         }
 
         .success-icon {
@@ -350,7 +421,7 @@ export default function InvoicePage() {
           background: white;
           border-radius: 12px;
           padding: 1.5rem;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
           display: flex;
           flex-direction: column;
           gap: 1rem;
@@ -428,7 +499,7 @@ export default function InvoicePage() {
           background: white;
           border-radius: 12px;
           padding: 1.5rem;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
         }
 
         .items-header {
@@ -531,7 +602,7 @@ export default function InvoicePage() {
         .action-btn.primary:hover {
           background: linear-gradient(135deg, #166534, #047857);
           transform: translateY(-2px);
-          box-shadow: 0 4px 15px rgba(21,128,61,0.3);
+          box-shadow: 0 4px 15px rgba(21, 128, 61, 0.3);
         }
 
         .action-btn.secondary {
@@ -544,7 +615,7 @@ export default function InvoicePage() {
           background: #15803d;
           color: white;
           transform: translateY(-2px);
-          box-shadow: 0 4px 15px rgba(21,128,61,0.3);
+          box-shadow: 0 4px 15px rgba(21, 128, 61, 0.3);
         }
 
         .thank-you-section {
@@ -655,8 +726,12 @@ export default function InvoicePage() {
         }
 
         @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
+          0% {
+            transform: rotate(0deg);
+          }
+          100% {
+            transform: rotate(360deg);
+          }
         }
       `}</style>
     </div>
