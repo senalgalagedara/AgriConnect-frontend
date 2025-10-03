@@ -1,5 +1,5 @@
 import { Mail, Phone, MapPin, Calendar } from 'lucide-react';
-import { User } from '@/interface/User';
+import { User, getUserDisplayName } from '@/interface/User';
 
 
 interface UserCardProps {
@@ -43,7 +43,7 @@ const UserCard = ({ user, onEdit, onDelete }: UserCardProps) => {
     <div style={containerStyle}>
       <div style={headerStyle}>
         <div>
-          <h3 style={nameStyle}>{user.name}</h3>
+          <h3 style={nameStyle}>{getUserDisplayName(user)}</h3>
           <div style={{display: 'flex', gap: 8}}>
             <span style={badgeStyle(user.role === 'farmer' ? '#ecfdf5' : user.role === 'consumer' ? '#eff6ff' : '#fff7ed', user.role === 'farmer' ? '#166534' : user.role === 'consumer' ? '#1e40af' : '#ea580c')}>
               {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
@@ -57,7 +57,7 @@ const UserCard = ({ user, onEdit, onDelete }: UserCardProps) => {
 
       <div>
         <div style={infoRowStyle}><Mail size={14} /> <span style={{fontSize: 13}}>{user.email}</span></div>
-        <div style={infoRowStyle}><Phone size={14} /> <span style={{fontSize: 13}}>{user.phone}</span></div>
+  <div style={infoRowStyle}><Phone size={14} /> <span style={{fontSize: 13}}>{user.contactNumber}</span></div>
         <div style={infoRowStyle}><MapPin size={14} /> <span style={{fontSize: 13}}>{user.address}</span></div>
         {joinedDate && (
           <div style={infoRowStyle}><Calendar size={14} /> <span style={{fontSize: 13}}>Joined {joinedDate.toLocaleDateString()}</span></div>

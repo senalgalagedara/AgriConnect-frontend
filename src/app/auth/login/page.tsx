@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { ApiError } from '@/lib/api';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -69,7 +70,15 @@ export default function LoginPage() {
       router.replace(nextPath);
     } catch (error) {
       console.error('Login error:', error);
-      setSubmitError(error instanceof Error ? error.message : 'Login failed');
+      if (error instanceof ApiError) {
+        if (error.status === 401) {
+          setSubmitError('Invalid email or password');
+        } else {
+          setSubmitError(error.message || 'Login failed');
+        }
+      } else {
+        setSubmitError(error instanceof Error ? error.message : 'Login failed');
+      }
     } finally {
       setIsLoading(false);
     }

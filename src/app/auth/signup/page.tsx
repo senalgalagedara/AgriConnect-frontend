@@ -1,6 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import { apiRequest, ApiError } from '@/lib/api';
+import { useAuth } from '@/context/AuthContext';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +15,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Eye, EyeOff, User, Mail, Phone, MapPin, Lock, Leaf, Users } from 'lucide-react';
 
 export default function SignupPage() {
+  const { login } = useAuth();
+  const router = useRouter();
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -26,21 +31,24 @@ export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showRetypePassword, setShowRetypePassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
 
     // First name validation
-    if (!formData.firstName.trim()) {
+    const fFirst = formData.firstName.trim();
+    if (!fFirst) {
       newErrors.firstName = 'First name is required';
-    } else if (formData.firstName.length < 2) {
+    } else if (fFirst.length < 2) {
       newErrors.firstName = 'First name must be at least 2 characters';
     }
 
     // Last name validation
-    if (!formData.lastName.trim()) {
+    const fLast = formData.lastName.trim();
+    if (!fLast) {
       newErrors.lastName = 'Last name is required';
-    } else if (formData.lastName.length < 2) {
+    } else if (fLast.length < 2) {
       newErrors.lastName = 'Last name must be at least 2 characters';
     }
 
@@ -113,17 +121,78 @@ export default function SignupPage() {
     if (!validateForm()) return;
 
     setIsLoading(true);
+    setSubmitError(null);
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      console.log('Signup attempt:', formData);
-      
-      // Handle successful signup here
-      // Redirect to appropriate dashboard based on selected role
-      alert('Account created successfully! Ready for backend integration.');
-    } catch (error) {
-      console.error('Signup error:', error);
+      const payload = {
+        // snake_case for backend
+        first_name: formData.firstName.trim(),
+        last_name: formData.lastName.trim(),
+        contact_number: formData.contactNumber.trim(),
+        // camelCase duplicates (some backends auto-bind different style)
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
+        contactNumber: formData.contactNumber.trim(),
+        email: formData.email.trim().toLowerCase(),
+        role: formData.role as any,
+        address: formData.address.trim(),
+        password: formData.password
+      };
+
+      // Call backend signup
+      const data = await apiRequest<{ user: { id: string; email: string; role: string; name?: string } }>(`/auth/signup`, {
+        method: 'POST',
+        body: payload,
+      });
+
+      // Auto-login (if backend doesn't automatically create session)
+      try {
+        await login(formData.email, formData.password);
+      } catch {
+        // fallback: ignore if session already established by signup
+      }
+
+      // Redirect by role (simple mapping) else homepage
+      const roleDest: Record<string, string> = {
+        farmer: '/dashboard/farmer',
+        consumer: '/dashboard/consumer',
+        driver: '/dashboard/driver'
+      };
+      router.replace(roleDest[formData.role] || '/');
+    } catch (error: any) {
+  console.error('Signup error:', error);
+      if (error instanceof ApiError) {
+        if (error.status === 409) {
+          setErrors(prev => ({ ...prev, email: 'Email already in use' }));
+        }
+        if (error.code === 'VALIDATION_ERROR' && error.details?.fields) {
+          // only log once per submission
+          console.debug('[signup] validation details', error.details.fields);
+          const fieldErrors: Record<string,string> = {};
+          Object.entries(error.details.fields).forEach(([k, v]) => {
+            let target = k;
+            if (k === 'first_name') target = 'firstName';
+            else if (k === 'last_name') target = 'lastName';
+            else if (k === 'contact_number') target = 'contactNumber';
+            else if (k === 'retype_password' || k === 'password_confirm') target = 'retypePassword';
+            const msg = String(v);
+            if (!formData[target as keyof typeof formData] || /required|invalid|match/i.test(msg)) {
+              fieldErrors[target] = msg;
+            }
+          });
+          setErrors(prev => ({ ...prev, ...fieldErrors }));
+          if (!Object.keys(error.details.fields).length) {
+            setSubmitError(error.message);
+          }
+        } else if (error.status !== 409) {
+          if (error.details && typeof error.details === 'object' && !error.details.fields) {
+            console.debug('[signup] raw error details', error.details);
+          }
+            setSubmitError(error.message || 'Invalid input. Please verify your details.');
+        }
+      } else {
+        setSubmitError('Signup failed. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -187,7 +256,8 @@ export default function SignupPage() {
                       placeholder="Enter first name"
                       value={formData.firstName}
                       onChange={handleChange}
-                      className={`pl-12 h-11 ${errors.firstName ? 'border-red-500' : ''}`}
+                      className={`h-11 ${errors.firstName ? 'border-red-500' : ''}`}
+                      style={{ paddingLeft: '3.75rem' }}
                     />
                   </div>
                   {errors.firstName && (
@@ -209,7 +279,8 @@ export default function SignupPage() {
                       placeholder="Enter last name"
                       value={formData.lastName}
                       onChange={handleChange}
-                      className={`pl-12 h-11 ${errors.lastName ? 'border-red-500' : ''}`}
+                      className={`h-11 ${errors.lastName ? 'border-red-500' : ''}`}
+                      style={{ paddingLeft: '3.75rem' }}
                     />
                   </div>
                   {errors.lastName && (
@@ -234,7 +305,8 @@ export default function SignupPage() {
                     placeholder="Enter your email"
                     value={formData.email}
                     onChange={handleChange}
-                    className={`pl-12 h-11 ${errors.email ? 'border-red-500' : ''}`}
+                    className={`h-11 ${errors.email ? 'border-red-500' : ''}`}
+                    style={{ paddingLeft: '3.75rem' }}
                   />
                 </div>
                 {errors.email && (
@@ -258,7 +330,8 @@ export default function SignupPage() {
                       placeholder="+1 (555) 123-4567"
                       value={formData.contactNumber}
                       onChange={handleChange}
-                      className={`pl-12 h-11 ${errors.contactNumber ? 'border-red-500' : ''}`}
+                      className={`h-11 ${errors.contactNumber ? 'border-red-500' : ''}`}
+                      style={{ paddingLeft: '3.75rem' }}
                     />
                   </div>
                   {errors.contactNumber && (
@@ -309,7 +382,8 @@ export default function SignupPage() {
                     placeholder="Enter your complete address"
                     value={formData.address}
                     onChange={handleChange}
-                    className={`pl-12 pt-3 min-h-[96px] leading-relaxed resize-none ${errors.address ? 'border-red-500' : ''}`}
+                    className={`pt-3 min-h-[96px] leading-relaxed resize-none ${errors.address ? 'border-red-500' : ''}`}
+                    style={{ paddingLeft: '3.75rem' }}
                   />
                 </div>
                 {errors.address && (
@@ -334,7 +408,8 @@ export default function SignupPage() {
                       placeholder="Create password"
                       value={formData.password}
                       onChange={handleChange}
-                      className={`pl-12 pr-10 h-11 ${errors.password ? 'border-red-500' : ''}`}
+                      className={`pr-10 h-11 ${errors.password ? 'border-red-500' : ''}`}
+                      style={{ paddingLeft: '3.75rem' }}
                     />
                     <button
                       type="button"
@@ -364,7 +439,8 @@ export default function SignupPage() {
                       placeholder="Confirm password"
                       value={formData.retypePassword}
                       onChange={handleChange}
-                      className={`pl-12 pr-10 h-11 ${errors.retypePassword ? 'border-red-500' : ''}`}
+                      className={`pr-10 h-11 ${errors.retypePassword ? 'border-red-500' : ''}`}
+                      style={{ paddingLeft: '3.75rem' }}
                     />
                     <button
                       type="button"
@@ -383,6 +459,12 @@ export default function SignupPage() {
                   )}
                 </div>
               </div>
+
+              {submitError && (
+                <Alert className="border-red-200 bg-red-50">
+                  <AlertDescription className="text-red-600 text-sm">{submitError}</AlertDescription>
+                </Alert>
+              )}
 
               <Button
                 type="submit"

@@ -238,3 +238,92 @@ curl -i -X POST -H 'Cookie: sid=...' https://api.example.com/auth/logout
 - Add role-based guards (e.g. admin routes) by extending `AuthUser.role`.
 - Implement silent session refresh or expiry warnings.
 - Add optimistic UI for user menu based on `user` object.
+
+### Recent Enhancements (Session Auth v2)
+The session authentication layer has been extended with:
+
+1. `apiRequest` now automatically:
+    - Sends cookies (`credentials: 'include'`) for cross-origin session persistence.
+    - Parses error bodies and throws a typed `ApiError` exposing `status` & `details`.
+    - Supports optional `query`, `rawBody`, custom `headers`, and abort `signal`.
+
+2. `AuthContext` additions:
+    - `isAuthenticated` boolean for quick checks.
+    - `hasRole(...roles)` helper (case-insensitive) for role-based gating.
+    - Automatic session refresh every 10 minutes and on window focus.
+    - Graceful handling of 401 responses (clears stale user state).
+
+3. `RoleGuard` component (`src/components/RoleGuard.tsx`):
+```tsx
+import RoleGuard from '@/components/RoleGuard';
+
+export default function AdminOnly() {
+   return (
+      <RoleGuard allow={["admin"]}>
+         <div>Secret admin dashboard</div>
+      </RoleGuard>
+   );
+}
+```
+
+4. Example combining `RequireAuth` and `RoleGuard`:
+```tsx
+import { RequireAuth } from '@/components/RequireAuth';
+import RoleGuard from '@/components/RoleGuard';
+
+export default function Page() {
+   return (
+      <RequireAuth>
+         <RoleGuard allow={["admin", "manager"]}>
+            <div>Visible only to authenticated admins or managers.</div>
+         </RoleGuard>
+      </RequireAuth>
+   );
+}
+```
+
+5. Handling ApiError in UI:
+```tsx
+import { apiRequest, ApiError } from '@/lib/api';
+
+try {
+   const data = await apiRequest('/secure');
+} catch (e) {
+   if (e instanceof ApiError) {
+      console.error('API failed', e.status, e.message, e.details);
+   }
+}
+```
+
+6. Customizing refresh interval:
+Adjust interval logic inside `AuthContext` (default 10 minutes). For a shorter interval, change `10 * 60 * 1000`.
+
+7. Adding new protected route prefix:
+Update `PROTECTED_PREFIXES` in `middleware.ts` to include the path segment.
+
+These enhancements make the authentication layer more resilient, ergonomic, and ready for role-based access expansion.
+
+### API Path Prefix & 404 Troubleshooting
+
+If your backend mounts routes under a prefix (e.g. `/api` or `/api/v1`), set:
+```
+NEXT_PUBLIC_API_PATH_PREFIX=/api/v1
+```
+The client automatically prepends this to every request. All frontend calls should continue to use paths like `/auth/login` (without the prefix).
+
+When a request returns 404 the client now logs:
+```
+[apiRequest] 404 Not Found { url, method }
+```
+Checklist:
+1. Confirm `NEXT_PUBLIC_API_BASE_URL` points to the correct host/port.
+2. If backend uses a prefix, set `NEXT_PUBLIC_API_PATH_PREFIX` (no trailing slash).
+3. Ensure you include a leading slash in each `apiRequest` call path (`/auth/login`).
+4. Restart `npm run dev` after adding or changing env variables.
+5. Curl the final URL shown in the console to verify server route exists.
+
+Example `.env.local`:
+```
+NEXT_PUBLIC_API_BASE_URL=http://localhost:5000
+NEXT_PUBLIC_API_PATH_PREFIX=/api
+```

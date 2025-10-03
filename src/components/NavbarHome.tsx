@@ -18,8 +18,10 @@ import {
 } from 'lucide-react';
 
 interface UserInfo {
-  name: string;
+  firstName?: string;
+  lastName?: string;
   avatarUrl?: string;
+  email?: string;
 }
 
 interface NavbarProps {
@@ -147,14 +149,14 @@ export default function Navbar({
             <Link href="/account" className="userBlock">
               <div className="avatar">
                 {user.avatarUrl ? (
-                  <Image src={user.avatarUrl} alt={user.name} fill sizes="36px" className="avatarImg" />
+                  <Image src={user.avatarUrl} alt={(user.firstName||'') + ' ' + (user.lastName||'')} fill sizes="36px" className="avatarImg" />
                 ) : (
                   <User size={18} />
                 )}
               </div>
               <div className="userMeta">
                 <span className="hello">Hello,</span>
-                <span className="userName">{user.name}</span>
+                <span className="userName">{[user.firstName, user.lastName].filter(Boolean).join(' ') || user.email}</span>
               </div>
               <ChevronDown size={16} className="chev" />
             </Link>
@@ -226,7 +228,7 @@ export default function Navbar({
               </>
             ) : (
               <Link href="/account" className="mobileAction" onClick={() => setIsMenuOpen(false)}>
-                <User size={18} /> {user.name}
+                <User size={18} /> {[user.firstName, user.lastName].filter(Boolean).join(' ') || user.email}
               </Link>
             )}
             <Link href="/notifications" className="mobileAction" onClick={() => setIsMenuOpen(false)}>

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Search, Filter, Users as UsersIcon } from 'lucide-react';
-import { User, UserRole } from '@/interface/User';
+import { User, UserRole, getUserDisplayName } from '@/interface/User';
 import UserCard from './UserCard';
 
 interface UserListProps {
@@ -14,7 +14,8 @@ const UserList = ({ users, onEdit, onDelete }: UserListProps) => {
   const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all');
 
   const filteredUsers = users.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  const displayName = getUserDisplayName(user);
+  const matchesSearch = displayName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.email.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRole = roleFilter === 'all' || user.role === roleFilter;
     return matchesSearch && matchesRole;

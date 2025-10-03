@@ -1,5 +1,5 @@
 import { Users, UserPlus, TrendingUp, Activity } from 'lucide-react';
-import { User } from '@/interface/User';
+import { User, getUserDisplayName } from '@/interface/User';
 
 interface DashboardProps {
   users: User[];
@@ -125,7 +125,7 @@ const Dashboard = ({ users, onNavigate }: DashboardProps) => {
               {recentUsers.map((user) => (
                 <div key={user.id} style={recentItem}>
                   <div style={{flex: 1}}>
-                    <p style={{fontWeight: 600, color: '#0b1220'}}>{user.name}</p>
+                    <p style={{fontWeight: 600, color: '#0b1220'}}>{getUserDisplayName(user)}</p>
                     <p style={{fontSize: 13, color: '#64748b', textTransform: 'capitalize'}}>{user.role}</p>
                   </div>
                   <span style={{padding: '6px 8px', borderRadius: 9999, fontSize: 12, fontWeight: 600, color: user.status === 'active' ? '#166534' : '#991b1b', background: user.status === 'active' ? '#dcfce7' : '#fee2e2'}}>
