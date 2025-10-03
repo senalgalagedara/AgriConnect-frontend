@@ -1,15 +1,18 @@
 "use client";
 import React, { createContext, useCallback, useContext, useState, ReactNode } from "react";
-import { FeedbackData, OpenFeedbackOptions, FeedbackContextValue } from "@/interface/Feedback";
+import { useAuth } from "@/context/AuthContext";
+import { FeedbackData, OpenFeedbackOptions, FeedbackContextValue, FeedbackType } from "@/interface/Feedback";
 
 const FeedbackContext = createContext<FeedbackContextValue | undefined>(undefined);
 
 export function FeedbackProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [options, setOptions] = useState<OpenFeedbackOptions | undefined>();
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState<number | null>(null);
   const [comment, setComment] = useState("");
+  const [feedbackType, setFeedbackType] = useState<FeedbackType>('user-experience');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -17,6 +20,9 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
   const open = useCallback((opts?: OpenFeedbackOptions) => {
     setOptions(opts);
     setRating(0);
+    // initialize feedbackType from options.meta.type if provided
+  const initialType = opts?.meta && ((opts.meta as any).type || (opts.meta as any).feedbackType);
+  setFeedbackType((initialType as FeedbackType) || 'user-experience');
     setComment("");
     setIsOpen(true);
     setError(null);
@@ -35,24 +41,73 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
     options?.onClosed?.();
   }, [options]);
 
+  // compute endpoint once so it's visible in the UI for debugging
+  const _base = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '');
+  const DEBUG_ENDPOINT = _base ? `${_base}/feedback` : `/api/feedback`;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (rating === 0) {
       setError("Please select a rating");
       return;
     }
+    if (!user) {
+      setError("You must be logged in to submit feedback.");
+      return;
+    }
     setError(null);
     setSubmitting(true);
     try {
-      const data: FeedbackData = { rating, comment: comment.trim(), meta: options?.meta };
-      await options?.onSubmitted?.(data);
+      // Determine backend endpoint (precomputed above)
+      const base = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '');
+      const endpoint = DEBUG_ENDPOINT;
+
+      if (!base) {
+        // If the project frontend is used without a configured backend URL, warn the developer.
+        // We still attempt the local fallback (`/api/feedback`) but surface a clearer message on failure.
+        console.warn('NEXT_PUBLIC_API_URL is not set — attempting local fallback to /api/feedback. Set NEXT_PUBLIC_API_URL to point to your backend (e.g. https://api.example.com) to save feedback to the remote DB.');
+      }
+
+      const payload: FeedbackData = {
+        rating,
+        comment: comment.trim(),
+        feedbackType: feedbackType || ((options?.meta && (options.meta as any).type) || (options?.meta && (options.meta as any).feedbackType) || 'user-experience'),
+        meta: options?.meta,
+      };
+
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        // Try to parse the body for a helpful error message (JSON or text)
+        const bodyText = await res.text().catch(() => '');
+        let parsed: any = null;
+        try { parsed = bodyText ? JSON.parse(bodyText) : null; } catch { parsed = null; }
+        const serverMessage = parsed?.error || parsed?.message || bodyText || `HTTP ${res.status}`;
+
+        // If we fell back to local and got 404, provide specific guidance
+        if (res.status === 404 && !base) {
+          throw new Error(`No backend endpoint found at ${endpoint}. Set NEXT_PUBLIC_API_URL to your backend base URL and ensure it exposes POST /feedback.`);
+        }
+
+        throw new Error(serverMessage || 'Failed to submit feedback');
+      }
+
+      // optionally call the provided callback with the submitted payload
+      await options?.onSubmitted?.(payload);
+
       setSuccess(true);
       const delay = options?.autoCloseDelay === undefined ? 2000 : options.autoCloseDelay;
       if (delay !== null && delay >= 0) {
         setTimeout(() => close(), delay);
       }
     } catch (err: any) {
-      setError(err.message || "Failed to submit");
+      // Provide helpful console and UI messages for common problems (network, CORS, 404)
+      console.error('Feedback submission failed:', err);
+      setError(err.message || 'Failed to submit feedback. Check console for details.');
     } finally {
       setSubmitting(false);
     }
@@ -79,6 +134,21 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
           color: '#4b5563',
           marginBottom: '24px'
         }}>
+          {/* show selected feedback type */}
+          <div style={{display: 'flex', justifyContent: 'center', marginBottom: 8}}>
+            <span style={{padding: '6px 10px', borderRadius: 9999, background: '#eef2ff', color: '#4f46e5', fontWeight: 600, fontSize: 13}}>
+              {(() => {
+                const t = feedbackType || (options?.meta && ((options.meta as any).type || (options.meta as any).feedbackType)) || 'general';
+                switch (String(t).toLowerCase()) {
+                  case 'user-experience': return 'User experience';
+                  case 'performance': return 'Performance';
+                  case 'product-service': return 'Product / Service';
+                  case 'transactional': return 'Transactional';
+                  default: return 'General';
+                }
+              })()}
+            </span>
+          </div>
           <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '8px'}}>
             <span style={{fontWeight: '500', color: '#374151'}}>Your rating:</span>
             <div style={{display: 'flex', alignItems: 'center'}}>
@@ -167,6 +237,22 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
                   <span className="text-sm text-gray-600">{rating}/5 {rating > 0 && 'stars'}</span>
                 </div>
 
+                {/* Feedback type dropdown (moved above the comment textarea) */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-semibold text-gray-800">Feedback type</label>
+                  <select
+                    value={feedbackType}
+                    onChange={(e) => setFeedbackType(e.target.value as FeedbackType)}
+                    className="w-full border border-gray-300 rounded-xl p-2 text-sm focus:ring-2 focus:ring-purple-500 h-8"
+                    style={{height: '32px'}}
+                  >
+                    <option value="user-experience">User experience</option>
+                    <option value="performance">Performance</option>
+                    <option value="product-service">Product / Service</option>
+                    <option value="transactional">Transactional</option>
+                  </select>
+                </div>
+
                 <div className="space-y-3">
                   <label className="block text-sm font-semibold text-gray-800">Additional feedback</label>
                   <textarea
@@ -199,6 +285,14 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
                     )}
                     <span>{options?.submitLabel || 'Submit feedback'}</span>
                   </button>
+
+                  {/* debug endpoint (visible only in development) */}
+                  <div className="pt-3 text-xs text-gray-400">
+                    <div>Posting to: <span className="font-mono">{DEBUG_ENDPOINT}</span></div>
+                    {!process.env.NEXT_PUBLIC_API_URL && (
+                      <div className="text-amber-600">Warning: NEXT_PUBLIC_API_URL not set — using local fallback. Configure NEXT_PUBLIC_API_URL in <code>.env.local</code>.</div>
+                    )}
+                  </div>
 
                   <div className="text-center" style={{marginTop: '16px', marginBottom: '12px'}}>
                     <span className="text-xs font-medium text-gray-400 tracking-wider">OR</span>
@@ -234,5 +328,3 @@ export function useFeedback() {
   if (!ctx) throw new Error("useFeedback must be used within FeedbackProvider");
   return ctx;
 }
-export type { OpenFeedbackOptions };
-

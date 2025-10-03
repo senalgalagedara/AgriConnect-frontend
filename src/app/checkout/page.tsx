@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { RequireAuth } from '@/components/RequireAuth';
 import { useRouter } from 'next/navigation';
 import Navbar from '../../components/NavbarHome';
 
@@ -253,6 +254,7 @@ export default function PaymentPage() {
   const { cart, totals } = data;
 
   return (
+    <RequireAuth>
     <div className="min-h-screen bg-gray-50">
       <Navbar cartItemCount={cart.reduce((sum, item) => sum + item.qty, 0)} />
       <div className="mx-auto max-w-6xl px-4 py-10 grid grid-cols-1 lg:grid-cols-2 gap-10">
@@ -587,6 +589,7 @@ export default function PaymentPage() {
 
       `}</style>
     </div>
+    </RequireAuth>
   );
 }
 

@@ -71,7 +71,7 @@ const Dashboard = ({ users, onNavigate }: DashboardProps) => {
   return (
     <div style={container}>
       <div style={{marginBottom: 18}}>
-        <h1 style={headerTitle}>Welcome to UserHub</h1>
+        <h1 style={headerTitle}>Welcome to User Management</h1>
         <p style={headerSubtitle}>Manage your users efficiently with our comprehensive dashboard.</p>
       </div>
 

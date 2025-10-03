@@ -1,5 +1,6 @@
 import "../styles/globals.css";
 import { FeedbackProvider } from "../components/FeedbackContext";
+import { AuthProvider } from "@/context/AuthContext";
 
 export default function RootLayout({
   children,
@@ -9,7 +10,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <FeedbackProvider>{children}</FeedbackProvider>
+        <AuthProvider>
+          <FeedbackProvider>{children}</FeedbackProvider>
+        </AuthProvider>
       </body>
     </html>
   );
