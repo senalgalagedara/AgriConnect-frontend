@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Sidebar from "../../components/sidebar";
 import Navbar from "../../components/navbar";
-import ProvinceCard from "../../components/provincecard";
 
 interface Province {
   id: number;
