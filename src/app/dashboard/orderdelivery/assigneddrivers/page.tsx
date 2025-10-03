@@ -1,69 +1,100 @@
-"use client"
-import React, { useEffect, useMemo, useState } from 'react'
-import { getWithMock } from '@/lib/api'
+'use client';
 
-type Assignment = {
-  id: number
-  order_id: number
-  driver_id: number
-  driver_name?: string
-  customer_name?: string
-  customer_address?: string
-  schedule_time: string
-  status: 'pending' | 'in_progress' | 'completed' | 'cancelled'
-}
+import { useEffect, useState } from 'react';
 
-export default function AssignedDriversPage() {
-  const [assignments, setAssignments] = useState<Assignment[]>([])
-  const [loading, setLoading] = useState(true)
-  const dateFmt = useMemo(() => new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }), [])
+type Row = {
+  assignmentId: number;
+  orderId: number;
+  driverId: number;
+  customerName: string;
+  address: string;
+  scheduleStatus: 'Scheduled' | 'In Transit' | 'Completed' | 'Cancelled';
+};
+
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:5000/api';
+
+export default function AssignmentsPage() {
+  const [rows, setRows] = useState<Row[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
-    ;(async () => {
-      const mock: Assignment[] = [
-        { id: 1, order_id: 101, driver_id: 1, driver_name: 'Alex Kim', customer_name: 'John Doe', customer_address: '123 Main St', schedule_time: new Date().toISOString(), status: 'pending' },
-      ]
-      const data = await getWithMock<Assignment[]>('/api/assignments', mock)
-      setAssignments(data)
-      setLoading(false)
-    })()
-  }, [])
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/assignments`, { cache: 'no-store' });
+        if (!res.ok) throw new Error(`Failed: ${res.status}`);
+        const payload = await res.json();
+        const rows = Array.isArray(payload) ? payload : payload?.data ?? [];
+        setRows(rows.map((r: any) => ({
+          assignmentId: r.id,
+          orderId: r.order_id,
+          driverId: r.driver_id,
+          customerName: r.customer_name,
+          address: r.customer_address,
+          scheduleStatus: (r.status || 'Scheduled').replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()),
+        })));
+      } catch (e: any) {
+        setErr(e.message ?? 'Failed to load');
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
 
   return (
-    <main className="p-6">
-      <h1 className="text-2xl font-semibold mb-6">Assigned Drivers</h1>
-      {loading ? (
-        <p className="text-sm text-gray-600">Loading assignments...</p>
-      ) : (
-        <div className="overflow-x-auto bg-white rounded-lg border border-gray-200 shadow-sm">
-          <table className="min-w-full text-sm">
-            <thead className="bg-gray-50 text-left">
+    <div className="wrap">
+      <h1>Assigned Drivers</h1>
+
+      {loading && <div className="note">Loading…</div>}
+      {err && <div className="error">Error: {err}</div>}
+
+      {!loading && !err && (
+        <div className="tableWrap">
+          <table>
+            <thead>
               <tr>
-                <th className="px-4 py-3 font-medium text-gray-600">Assignment ID</th>
-                <th className="px-4 py-3 font-medium text-gray-600">Order</th>
-                <th className="px-4 py-3 font-medium text-gray-600">Driver</th>
-                <th className="px-4 py-3 font-medium text-gray-600">Customer</th>
-                <th className="px-4 py-3 font-medium text-gray-600">Address</th>
-                <th className="px-4 py-3 font-medium text-gray-600">Schedule</th>
-                <th className="px-4 py-3 font-medium text-gray-600">Status</th>
+                <th>Assignment ID</th>
+                <th>Order id</th>
+                <th>Driverid</th>
+                <th>Customer name</th>
+                <th>Address</th>
+                <th>ScheduleStatus</th>
               </tr>
             </thead>
             <tbody>
-              {assignments.map((a) => (
-                <tr key={a.id} className="border-t border-gray-100">
-                  <td className="px-4 py-3">#{a.id}</td>
-                  <td className="px-4 py-3">#{a.order_id}</td>
-                  <td className="px-4 py-3">{a.driver_name || `ID ${a.driver_id}`}</td>
-                  <td className="px-4 py-3">{a.customer_name}</td>
-                  <td className="px-4 py-3">{a.customer_address}</td>
-                  <td className="px-4 py-3">{dateFmt.format(new Date(a.schedule_time))}</td>
-                  <td className="px-4 py-3 capitalize">{a.status.replace('_', ' ')}</td>
+              {rows.map(r => (
+                <tr key={r.assignmentId}>
+                  <td>{r.assignmentId}</td>
+                  <td>{r.orderId}</td>
+                  <td>{r.driverId}</td>
+                  <td>{r.customerName}</td>
+                  <td>{r.address}</td>
+                  <td><span className={`badge ${r.scheduleStatus.replace(/\s+/g,'').toLowerCase()}`}>{r.scheduleStatus}</span></td>
                 </tr>
               ))}
+              {rows.length === 0 && (
+                <tr><td colSpan={6} className="note">No assignments yet</td></tr>
+              )}
             </tbody>
           </table>
         </div>
       )}
-    </main>
-  )
+
+      <style jsx>{`
+        .wrap { display: grid; gap: 12px; }
+        h1 { font-size: 20px; margin: 0; }
+        .tableWrap { overflow: auto; border: 1px solid #eee; border-radius: 10px; background: #fff; }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        thead th { text-align: left; padding: 10px; background: #fafafa; border-bottom: 1px solid #eee; white-space: nowrap; }
+        tbody td { padding: 10px; border-bottom: 1px solid #f2f2f2; vertical-align: top; }
+        .badge { padding: 3px 8px; border-radius: 999px; font-size: 12px; border: 1px solid #e5e5e5; background: #f7f7f7; }
+        .badge.scheduled { background: #e6f7ff; border-color: #91d5ff; }
+        .badge.intransit { background: #fffbe6; border-color: #ffe58f; }
+        .badge.completed { background: #f6ffed; border-color: #b7eb8f; }
+        .badge.cancelled { background: #fff1f0; border-color: #ffa39e; }
+        .note { padding: 10px; color: #666; }
+        .error { padding: 10px; color: #a50000; background: #fff1f0; border: 1px solid #ffa39e; border-radius: 8px; }
+      `}</style>
+    </div>
+  );
 }
