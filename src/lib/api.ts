@@ -1,7 +1,9 @@
 // Simple API helper with mock fallback
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
 
-export const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000').replace(/\/$/, '');
+// Support either NEXT_PUBLIC_API_BASE_URL or legacy NEXT_PUBLIC_API_URL env var
+const _rawBase = process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+export const API_BASE_URL = _rawBase.replace(/\/$/, '');
 const API_PATH_PREFIX = (process.env.NEXT_PUBLIC_API_PATH_PREFIX || '').replace(/\/$/, '').replace(/^\/+/, '');
 
 export interface ApiRequestOptions {
@@ -78,6 +80,35 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
   }
 
   if (!response.ok) {
+    // If 404 and we used a prefix, attempt one retry without prefix (maybe misconfigured)
+    if (response.status === 404 && API_PATH_PREFIX) {
+      console.warn('[apiRequest] 404 with prefix, retrying without prefix', { url });
+      try {
+        const retryUrl = `${API_BASE_URL}${path.startsWith('/') ? path : '/' + path}${qs}`;
+        const retryResp = await fetch(retryUrl, {
+          method: options.method || 'GET',
+          headers,
+          body,
+          cache: 'no-store',
+          credentials: 'include',
+          signal: options.signal,
+        });
+        let retryParsed: any = null;
+        const retryText = await retryResp.text().catch(() => '');
+        if (retryText) { try { retryParsed = JSON.parse(retryText); } catch { retryParsed = retryText; } }
+        if (retryResp.ok) {
+          if (retryParsed && typeof retryParsed === 'object' && 'data' in retryParsed) {
+            return retryParsed.data as T;
+          }
+          return (retryParsed as T) ?? (undefined as unknown as T);
+        } else {
+          // Replace parsed/response with retry for error context
+          parsed = retryParsed;
+        }
+      } catch (e) {
+        // swallow; will fall through to regular error construction
+      }
+    }
     if (response.status === 404) {
       console.warn('[apiRequest] 404 Not Found', { url, method: options.method || 'GET' });
     } else if (response.status >= 500) {
@@ -86,12 +117,17 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     let message: string | undefined;
     if (parsed && typeof parsed === 'object') {
       message = (parsed.message as string) || (parsed.error as string);
-      // Better default for validation errors
       if (!message && (parsed.error === 'VALIDATION_ERROR' || parsed.code === 'VALIDATION_ERROR')) {
         message = 'Some fields are invalid. Please review and correct highlighted inputs.';
       }
     }
-    if (!message) message = `Request failed (${response.status})`;
+    if (!message) {
+      if (response.status === 404) {
+        message = 'API endpoint not found';
+      } else {
+        message = `Request failed (${response.status})`;
+      }
+    }
     throw new ApiError(message, response.status, parsed);
   }
 
