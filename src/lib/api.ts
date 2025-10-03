@@ -1,48 +1,114 @@
 // Simple API helper with mock fallback
-export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'
+export const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000').replace(/\/$/, '');
+const API_PATH_PREFIX = (process.env.NEXT_PUBLIC_API_PATH_PREFIX || '').replace(/\/$/, '').replace(/^\/+/, '');
 
-export async function apiRequest<T>(path: string, options: { method?: HttpMethod; body?: any; query?: Record<string, any> } = {}): Promise<T> {
-  const qs = options.query ? `?${new URLSearchParams(Object.entries(options.query).reduce((acc, [k, v]) => {
-    if (v === undefined || v === null) return acc
-    acc[k] = String(v)
-    return acc
-  }, {} as Record<string, string>)).toString()}` : ''
-  const url = `${API_BASE_URL}${path}${qs}`
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+export interface ApiRequestOptions {
+  method?: HttpMethod;
+  body?: any;
+  query?: Record<string, any>;
+  headers?: Record<string, string>;
+  signal?: AbortSignal;
+  // allow opting out of automatic JSON content-type
+  rawBody?: boolean;
+}
+
+export class ApiError extends Error {
+  status: number;
+  details?: any;
+  code?: string;
+  constructor(message: string, status: number, details?: any) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.details = details;
+    if (details && typeof details === 'object') {
+      if ('error' in details && typeof details.error === 'string') this.code = details.error;
+      else if ('code' in details && typeof (details as any).code === 'string') this.code = (details as any).code;
+    }
+  }
+}
+
+function buildQuery(query?: Record<string, any>) {
+  if (!query) return '';
+  const params = new URLSearchParams();
+  Object.entries(query).forEach(([k, v]) => {
+    if (v === undefined || v === null) return;
+    params.append(k, String(v));
+  });
+  const s = params.toString();
+  return s ? `?${s}` : '';
+}
+
+export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
+  // Ensure path begins with single leading slash
+  let cleaned = path.startsWith('/') ? path : `/${path}`;
+  // Optionally inject prefix (e.g. /api/v1)
+  if (API_PATH_PREFIX) {
+    cleaned = `/${API_PATH_PREFIX}${cleaned}`.replace(/\/+/g, '/');
+  }
+  const qs = buildQuery(options.query);
+  const url = `${API_BASE_URL}${cleaned}${qs}`;
+
+  const headers: Record<string, string> = options.headers ? { ...options.headers } : {};
+  if (!options.rawBody) {
+    headers['Content-Type'] = headers['Content-Type'] || 'application/json';
+  }
+
+  let body: BodyInit | undefined;
+  if (options.body !== undefined) {
+    body = options.rawBody ? options.body : JSON.stringify(options.body);
+  }
+
   const response = await fetch(url, {
     method: options.method || 'GET',
     headers,
-    body: options.body ? JSON.stringify(options.body) : undefined,
+    body,
     cache: 'no-store',
-  })
+    credentials: 'include', // send cookies for session auth
+    signal: options.signal,
+  });
+
+  // Try to parse JSON (even on error) but fall back gracefully
+  let parsed: any = null;
+  const text = await response.text().catch(() => '');
+  if (text) {
+    try { parsed = JSON.parse(text); } catch { parsed = text; }
+  }
+
   if (!response.ok) {
-    throw new Error(`Request failed: ${response.status}`)
+    if (response.status === 404) {
+      console.warn('[apiRequest] 404 Not Found', { url, method: options.method || 'GET' });
+    } else if (response.status >= 500) {
+      console.error('[apiRequest] Server error', { status: response.status, url });
+    }
+    let message: string | undefined;
+    if (parsed && typeof parsed === 'object') {
+      message = (parsed.message as string) || (parsed.error as string);
+      // Better default for validation errors
+      if (!message && (parsed.error === 'VALIDATION_ERROR' || parsed.code === 'VALIDATION_ERROR')) {
+        message = 'Some fields are invalid. Please review and correct highlighted inputs.';
+      }
+    }
+    if (!message) message = `Request failed (${response.status})`;
+    throw new ApiError(message, response.status, parsed);
   }
-  const json = await response.json()
-  // Unwrap backend ApiResponse { success, data, ... } if present
-  if (json && typeof json === 'object' && 'data' in json) {
-    return json.data as T
+
+  // unwrap { data } envelope if present
+  if (parsed && typeof parsed === 'object' && 'data' in parsed) {
+    return parsed.data as T;
   }
-  return json as T
+  return (parsed as T) ?? (undefined as unknown as T);
 }
 
 // Helpers with mock fallbacks
 export async function getWithMock<T>(path: string, mock: T, query?: Record<string, any>): Promise<T> {
-  try {
-    return await apiRequest<T>(path, { query })
-  } catch {
-    return mock
-  }
+  try { return await apiRequest<T>(path, { query }); } catch { return mock; }
 }
 
 export async function postWithMock<T>(path: string, body: any, mock: T): Promise<T> {
-  try {
-    return await apiRequest<T>(path, { method: 'POST', body })
-  } catch {
-    return mock
-  }
+  try { return await apiRequest<T>(path, { method: 'POST', body }); } catch { return mock; }
 }
 
 
