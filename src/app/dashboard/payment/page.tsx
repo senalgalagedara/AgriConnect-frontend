@@ -24,7 +24,8 @@ type SiteStats = {
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:5000/api";
 
 /** Expects: array of orders OR { data: [...] } */
-const LIST_ORDERS_URL = `${API_BASE}/orders/paid`;
+// Use admin orders endpoint which returns order list with customer name, email, phone, total and created_at
+const LIST_ORDERS_URL = `${API_BASE}/admin/orders`;
 
 /** Optional stats endpoint. Fallback computes from orders if missing. */
 const STATS_URL = `${API_BASE}/stats`; // alternative: `${API_BASE}/orders/stats`
