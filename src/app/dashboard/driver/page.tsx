@@ -223,7 +223,7 @@ export default function DriverDashboard() {
                           </p>
                           <p className="text-sm text-gray-500">{delivery.address}</p>
                         </div>
-                        <Badge variant="outline" className="text-xs">
+                        <Badge className="text-xs">
                           {delivery.time}
                         </Badge>
                       </div>

@@ -184,7 +184,7 @@ export default function ConsumerDashboard() {
                           {order.date} • {order.farm} • {order.total}
                         </p>
                       </div>
-                      <Button variant="outline" size="sm">
+                      <Button className="flex items-center border border-gray-200 px-2 py-1 text-sm">
                         <Eye className="w-4 h-4 mr-2" />
                         View Details
                       </Button>
