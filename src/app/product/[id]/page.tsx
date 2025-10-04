@@ -297,13 +297,11 @@ export default function ProductDetailPage() {
             </div>
           </div>
 
-          {/* Product Info */}
           <div className="product-info-section">
             <div className="product-header">
               <div className="product-category">{product.category_name}</div>
               <h1 className="product-title">{product.product_name}</h1>
 
-              {/* Rating */}
               <div className="product-rating">
                 <div className="stars">
                   {[...Array(5)].map((_, i) => (
