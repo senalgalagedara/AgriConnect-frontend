@@ -167,7 +167,7 @@ export default function FarmerDashboard() {
                         </div>
                       </div>
                       <div className="flex gap-2">
-                        <Button variant="outline" size="sm">
+                        <Button className="border border-gray-200 px-2 py-1 text-sm flex items-center">
                           <Edit className="w-4 h-4 mr-2" />
                           Edit
                         </Button>
