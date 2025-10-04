@@ -1,5 +1,6 @@
 export interface User {
-  id: string;
+  // Primary key now numeric (auto-increment in backend)
+  id: number;
   email: string;
   firstName: string;
   lastName: string;

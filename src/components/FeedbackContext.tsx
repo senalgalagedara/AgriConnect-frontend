@@ -1,6 +1,7 @@
 "use client";
 import React, { createContext, useCallback, useContext, useState, ReactNode } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { apiRequest, ApiError } from '@/lib/api';
 import { FeedbackData, OpenFeedbackOptions, FeedbackContextValue, FeedbackType } from "@/interface/Feedback";
 
 const FeedbackContext = createContext<FeedbackContextValue | undefined>(undefined);
@@ -12,22 +13,27 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState<number | null>(null);
   const [comment, setComment] = useState("");
-  const [feedbackType, setFeedbackType] = useState<FeedbackType>('user-experience');
+  const [feedbackType, setFeedbackType] = useState<FeedbackType>('user-experience'); // kept camel/hyphen UI version; converted later
   const [submitting, setSubmitting] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [lastSubmittedId, setLastSubmittedId] = useState<number | null>(null);
+  const [lastSubmittedPayload, setLastSubmittedPayload] = useState<FeedbackData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
   const open = useCallback((opts?: OpenFeedbackOptions) => {
     setOptions(opts);
-    setRating(0);
-    // initialize feedbackType from options.meta.type if provided
-  const initialType = opts?.meta && ((opts.meta as any).type || (opts.meta as any).feedbackType);
-  setFeedbackType((initialType as FeedbackType) || 'user-experience');
-    setComment("");
+    if (!editing) {
+      setRating(0);
+      // initialize feedbackType from options.meta.type if provided
+      const initialType = opts?.meta && ((opts.meta as any).type || (opts.meta as any).feedbackType);
+      setFeedbackType((initialType as FeedbackType) || 'user-experience');
+      setComment("");
+    }
     setIsOpen(true);
     setError(null);
     setSuccess(false);
-  }, []);
+  }, [editing]);
 
   const close = useCallback(() => {
     setIsOpen(false);
@@ -37,18 +43,24 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
       setComment("");
       setError(null);
       setSuccess(false);
+      setEditing(false);
     }, 200);
     options?.onClosed?.();
   }, [options]);
 
   // compute endpoint once so it's visible in the UI for debugging
   const _base = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '');
-  const DEBUG_ENDPOINT = _base ? `${_base}/feedback` : `/api/feedback`;
+  // We only show this for debugging; actual request now uses unified apiRequest with relative path
+  const DEBUG_ENDPOINT = '/feedback';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (rating === 0) {
-      setError("Please select a rating");
+      setError("Rating is required (1-5)");
+      return;
+    }
+    if (!comment.trim()) {
+      setError('Comment is required');
       return;
     }
     if (!user) {
@@ -58,15 +70,7 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
     setError(null);
     setSubmitting(true);
     try {
-      // Determine backend endpoint (precomputed above)
-      const base = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '');
-      const endpoint = DEBUG_ENDPOINT;
-
-      if (!base) {
-        // If the project frontend is used without a configured backend URL, warn the developer.
-        // We still attempt the local fallback (`/api/feedback`) but surface a clearer message on failure.
-        console.warn('NEXT_PUBLIC_API_URL is not set — attempting local fallback to /api/feedback. Set NEXT_PUBLIC_API_URL to point to your backend (e.g. https://api.example.com) to save feedback to the remote DB.');
-      }
+      // We'll call /feedback (apiRequest adds prefix + base/rewrites). No need to manually assemble URL.
 
       const payload: FeedbackData = {
         rating,
@@ -74,30 +78,101 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
         feedbackType: feedbackType || ((options?.meta && (options.meta as any).type) || (options?.meta && (options.meta as any).feedbackType) || 'user-experience'),
         meta: options?.meta,
       };
-
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        // Try to parse the body for a helpful error message (JSON or text)
-        const bodyText = await res.text().catch(() => '');
-        let parsed: any = null;
-        try { parsed = bodyText ? JSON.parse(bodyText) : null; } catch { parsed = null; }
-        const serverMessage = parsed?.error || parsed?.message || bodyText || `HTTP ${res.status}`;
-
-        // If we fell back to local and got 404, provide specific guidance
-        if (res.status === 404 && !base) {
-          throw new Error(`No backend endpoint found at ${endpoint}. Set NEXT_PUBLIC_API_URL to your backend base URL and ensure it exposes POST /feedback.`);
+      // Provide multiple key styles to satisfy different backend naming expectations
+      const snake = (s: string) => s.replace(/([A-Z])/g,'_$1').replace(/[-\s]+/g,'_').toLowerCase();
+      const canonicalType = payload.feedbackType;
+      const snakeType = snake(canonicalType);
+      // Map frontend variant to backend enum expected values.
+      // Frontend keeps 'user-experience' for display; backend wants user_experience, etc.
+      const backendType = snakeType; // already normalized snake case
+      // Map role to allowed user_type enum
+      const allowedUserTypes = new Set(['farmer','supplier','driver','admin','anonymous']);
+      const mappedUserType = user?.role && allowedUserTypes.has(user.role) ? user.role : 'anonymous';
+      const apiPayload = {
+        ...payload,
+        message: payload.comment,                // backend alias
+        subject: (options?.meta as any)?.subject || backendType,
+        // backend enums: low | medium | high | urgent
+        priority: (options?.meta as any)?.priority || 'medium',
+        // backend enums: pending | in_progress | resolved | closed
+        status: (options?.meta as any)?.status || 'pending',
+        user_id: user?.id,                       // align with backend user_id foreign key
+        user_type: mappedUserType,
+        feedback_type: backendType,              // snake_case variant for backend enums
+        type: backendType,                       // generic variant if backend inspects 'type'
+        // TEMP compatibility: some backend SQL still references category column
+        category: backendType,
+      } as Record<string, any>;
+      if (process.env.NODE_ENV !== 'production') {
+        // Avoid logging comment content if too long
+        const { comment: cmt, ...rest } = apiPayload;
+        console.debug('[feedback] submitting', { ...rest, commentPreview: cmt.slice(0,60) + (cmt.length>60?'…':'') });
+      }
+      try {
+        if (editing && lastSubmittedId) {
+          await apiRequest(`/feedback/${lastSubmittedId}`, { method: 'PUT', body: apiPayload });
+        } else {
+          const created: any = await apiRequest('/feedback', { method: 'POST', body: apiPayload });
+          // attempt to capture created id (common patterns id / feedback_id)
+          if (created) {
+            const newId = (created.id ?? created.feedback_id ?? created.data?.id);
+            if (typeof newId === 'number') {
+              setLastSubmittedId(newId);
+            }
+          }
         }
-
-        throw new Error(serverMessage || 'Failed to submit feedback');
+      } catch (e:any) {
+        if (e instanceof ApiError) {
+          if (process.env.NODE_ENV !== 'production') {
+            console.warn('[feedback] ApiError', { status: e.status, code: e.code, details: e.details });
+          }
+          if (e.status === 404) {
+            setError('Feedback endpoint not found. Ensure backend exposes POST /feedback and any API_PATH_PREFIX matches.');
+          } else if (e.code === 'VALIDATION_ERROR' || e.status === 400) {
+            // Attempt to surface first field error or generic validation message across multiple possible shapes
+            let fieldMsg: any = null;
+            const d: any = e.details;
+            if (d) {
+              if (d.fields && typeof d.fields === 'object') {
+                const first = Object.values(d.fields)[0];
+                fieldMsg = Array.isArray(first) ? first[0] : first;
+              } else if (Array.isArray(d.errors) && d.errors.length) {
+                fieldMsg = d.errors[0].message || d.errors[0];
+              } else if (d.validationErrors && typeof d.validationErrors === 'object') {
+                const first = Object.values(d.validationErrors)[0];
+                fieldMsg = Array.isArray(first) ? first[0] : first;
+              } else if (d.error && typeof d.error === 'string' && d.error !== 'VALIDATION_ERROR') {
+                fieldMsg = d.error;
+              } else if (d.message) {
+                fieldMsg = d.message;
+              } else if (typeof d === 'string') {
+                fieldMsg = d;
+              }
+            }
+            if (process.env.NODE_ENV !== 'production') {
+              console.debug('[feedback] validation diagnostics', { rawDetails: e.details });
+            }
+            let fieldMsgStr = '';
+            if (fieldMsg) {
+              if (typeof fieldMsg === 'string') fieldMsgStr = fieldMsg;
+              else if (typeof fieldMsg === 'object') fieldMsgStr = fieldMsg.msg || fieldMsg.message || JSON.stringify(fieldMsg);
+              else fieldMsgStr = String(fieldMsg);
+            }
+            const baseMessage = e.message && typeof e.message === 'string' ? e.message : 'Validation failed.';
+            setError(fieldMsgStr || baseMessage);
+          } else {
+            setError(e.message || 'Failed to submit feedback.');
+          }
+        } else {
+          setError(e?.message || 'Failed to submit feedback.');
+        }
+        throw e; // propagate to outer catch for logging
       }
 
       // optionally call the provided callback with the submitted payload
       await options?.onSubmitted?.(payload);
+
+      setLastSubmittedPayload(payload);
 
       setSuccess(true);
       const delay = options?.autoCloseDelay === undefined ? 2000 : options.autoCloseDelay;
@@ -105,12 +180,23 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
         setTimeout(() => close(), delay);
       }
     } catch (err: any) {
-      // Provide helpful console and UI messages for common problems (network, CORS, 404)
-      console.error('Feedback submission failed:', err);
-      setError(err.message || 'Failed to submit feedback. Check console for details.');
+      if (!(err instanceof ApiError)) {
+        console.error('Feedback submission failed:', err);
+      }
+      // error state already set in inner catch for ApiError paths
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const startEdit = () => {
+    if (!lastSubmittedPayload) return;
+    setEditing(true);
+    setSuccess(false);
+    // repopulate form fields
+    setRating(lastSubmittedPayload.rating);
+    setFeedbackType(lastSubmittedPayload.feedbackType);
+    setComment(lastSubmittedPayload.comment);
   };
 
   const SuccessView = () => (
@@ -138,11 +224,13 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
           <div style={{display: 'flex', justifyContent: 'center', marginBottom: 8}}>
             <span style={{padding: '6px 10px', borderRadius: 9999, background: '#eef2ff', color: '#4f46e5', fontWeight: 600, fontSize: 13}}>
               {(() => {
-                const t = feedbackType || (options?.meta && ((options.meta as any).type || (options.meta as any).feedbackType)) || 'general';
-                switch (String(t).toLowerCase()) {
+                const tRaw = feedbackType || (options?.meta && ((options.meta as any).type || (options.meta as any).feedbackType)) || 'general';
+                const t = String(tRaw).toLowerCase().replace(/-/g,'_');
+                switch (t) {
+                  case 'user_experience':
                   case 'user-experience': return 'User experience';
                   case 'performance': return 'Performance';
-                  case 'product-service': return 'Product / Service';
+                  case 'product_service': return 'Product / Service';
                   case 'transactional': return 'Transactional';
                   default: return 'General';
                 }
@@ -166,25 +254,24 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
           )}
         </div>
       )}
-      <button
-        type="button"
-        onClick={close}
-        style={{
-          width: '100%',
-          backgroundColor: '#9333ea',
-          color: 'white',
-          fontWeight: '600',
-          padding: '12px 32px',
-          borderRadius: '12px',
-          border: 'none',
-          cursor: 'pointer',
-          transition: 'background-color 0.2s'
-        }}
-        onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#7c3aed'}
-        onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#9333ea'}
-      >
-        Close
-      </button>
+      <div style={{display:'flex', gap:'12px', marginBottom:'16px'}}>
+        <button
+          type="button"
+          onClick={startEdit}
+          style={{flex:1, background:'#f3f4f6', color:'#111827', fontWeight:600, padding:'12px 24px', border:'1px solid #e5e7eb', borderRadius:12, cursor:'pointer'}}
+        >
+          ✏️ Edit feedback
+        </button>
+        <button
+          type="button"
+          onClick={close}
+          style={{flex:1, backgroundColor:'#9333ea', color:'white', fontWeight:600, padding:'12px 24px', border:'none', borderRadius:12, cursor:'pointer'}}
+          onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#7c3aed'}
+          onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#9333ea'}
+        >
+          Close
+        </button>
+      </div>
     </div>
   );  return (
     <FeedbackContext.Provider value={{ open, close, isOpen }}>
@@ -248,7 +335,7 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
                   >
                     <option value="user-experience">User experience</option>
                     <option value="performance">Performance</option>
-                    <option value="product-service">Product / Service</option>
+                    <option value="product_service">Product / Service</option>
                     <option value="transactional">Transactional</option>
                   </select>
                 </div>
@@ -273,7 +360,7 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
                 <div className="space-y-4" style={{marginTop: '24px'}}>
                   <button
                     onClick={handleSubmit}
-                    disabled={submitting || rating === 0}
+                    disabled={submitting || rating === 0 || !comment.trim()}
                     className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white font-semibold rounded-xl transition-colors duration-200 flex items-center justify-center space-x-2"
                     style={{padding: '12px 32px'}}
                   >
@@ -288,10 +375,8 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
 
                   {/* debug endpoint (visible only in development) */}
                   <div className="pt-3 text-xs text-gray-400">
-                    <div>Posting to: <span className="font-mono">{DEBUG_ENDPOINT}</span></div>
-                    {!process.env.NEXT_PUBLIC_API_URL && (
-                      <div className="text-amber-600">Warning: NEXT_PUBLIC_API_URL not set — using local fallback. Configure NEXT_PUBLIC_API_URL in <code>.env.local</code>.</div>
-                    )}
+                    <div>Posting to logical path: <span className="font-mono">{DEBUG_ENDPOINT}</span></div>
+                    <div className="text-gray-500">Final URL built from apiRequest (base + optional prefix + rewrite).</div>
                   </div>
 
                   <div className="text-center" style={{marginTop: '16px', marginBottom: '12px'}}>

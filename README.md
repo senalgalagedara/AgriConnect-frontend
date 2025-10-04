@@ -326,4 +326,40 @@ Example `.env.local`:
 ```
 NEXT_PUBLIC_API_BASE_URL=http://localhost:5000
 NEXT_PUBLIC_API_PATH_PREFIX=/api
+NEXT_PUBLIC_USE_API_REWRITE=true
 ```
+
+If `NEXT_PUBLIC_USE_API_REWRITE=true` the frontend will call relative paths (e.g. `/api/auth/session`) allowing Next.js `rewrites()` to proxy to your backend. This keeps cookies first‑party and often resolves development 401 issues where the cookie was never stored cross-origin. Set it to `false` (or remove) if you want direct absolute requests.
+
+### BREAKING CHANGE: Numeric User IDs (Migration)
+
+User primary keys have migrated from UUID strings to auto-incrementing numeric IDs.
+
+Summary:
+- `User.id` and `AuthUser.id` are now `number` (was `string`).
+- Normalization coerces backend `id` to number; non-numeric falls back to `0` with a console warning (dev only).
+- A helper `migratePersistedUserId` (`src/lib/migrateUserId.ts`) can be called early to update any cached user objects in `localStorage` created before the migration.
+
+If you previously persisted users:
+```ts
+import { migratePersistedUserId } from '@/lib/migrateUserId';
+
+if (typeof window !== 'undefined') {
+   migratePersistedUserId();
+}
+```
+
+Backend Expectations:
+- Signup/login/session endpoints now return numeric `id` fields.
+- If your backend still returns a string ID, update it OR temporarily adapt by converting in the backend controller (preferred) instead of re-widening types in the frontend.
+
+Testing Checklist Post-Migration:
+1. Sign up a new user -> verify network response `user.id` is a number.
+2. Refresh page -> session fetch still shows correct `id` (no warnings).
+3. Navigate user dashboard -> recent users list renders with numeric keys.
+4. (Optional) Run `localStorage.getItem('auth:user')` in dev tools to verify numeric `id` if you cache.
+
+Rollback (if needed):
+Revert `id: number` to `id: string` in `User.ts` and `AuthContext.tsx`, remove migration helper, and remove numeric coercion. Not recommended—update backend instead.
+
+Release Tag Suggestion: `feat(auth): numeric-user-ids`.
