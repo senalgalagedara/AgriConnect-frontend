@@ -137,6 +137,7 @@ export default function ItemPage() {
       price_per_unit: Number(formData.get("price_per_unit")),
       supply_date: formData.get("supply_date") as string,
       notes: (formData.get("notes") as string) || undefined,
+      
     };
 
     try {
@@ -411,7 +412,8 @@ export default function ItemPage() {
                       className="input-lg"
                       type="date"
                       name="supply_date"
-                      defaultValue={editingSupplier ? new Date(editingSupplier.supply_date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0]}
+                      defaultValue={editingSupplier ? 
+                        new Date(editingSupplier.supply_date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0]}
                     />
 
                     <label className="input-label">Unit Price</label>

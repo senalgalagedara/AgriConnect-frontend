@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Navbar from '../../components/NavbarHome';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:5000/api';
-const USER_ID = 1;
+const USER_ID =1;
 
 export type CartItem = {
   id: number;
@@ -35,7 +35,7 @@ export type ShippingDetails = {
 };
 
 export type CheckoutData = {
-  orderId: number; // will be hydrated from backend if missing locally
+  orderId: number; 
   cart: CartItem[];
   contact: ContactDetails;
   shipping: ShippingDetails;
@@ -48,12 +48,12 @@ export type CheckoutData = {
 };
 
 export type Transaction = {
-  id: number; // order id
+  id: number; 
   customerName: string;
   email: string;
   total: number;
   paymentMethod: 'COD' | 'CARD';
-  createdAt: string; // ISO
+  createdAt: string; 
   items: CartItem[];
 };
 
@@ -66,6 +66,44 @@ function extractOrderId(json: any): number | null {
     return json.orders[0].id;
   }
   return null;
+}
+
+function normalizeCartResponse(raw: any) {
+  if (!raw || typeof raw !== 'object') {
+    return {
+      items: [],
+      totals: { subtotal: 0, tax: 0, shippingFee: 0, total: 0 },
+      cart: null,
+    };
+  }
+
+  const items = Array.isArray(raw.items)
+    ? raw.items
+    : Array.isArray(raw.data?.items)
+    ? raw.data.items
+    : Array.isArray(raw.cart?.items)
+    ? raw.cart.items
+    : Array.isArray(raw.result?.items)
+    ? raw.result.items
+    : [];
+
+  const shippingFee = raw.totals?.shippingFee ?? raw.data?.totals?.shippingFee ?? 0;
+  const subtotalFromBackend = raw.totals?.subtotal ?? raw.data?.totals?.subtotal ?? null;
+
+  const subtotal = typeof subtotalFromBackend === 'number'
+    ? subtotalFromBackend
+    : items.reduce((s: number, it: any) => s + (Number(it.price) || 0) * (Number(it.qty) || 0), 0);
+
+  const tax = raw.totals?.tax ?? raw.data?.totals?.tax ?? +(subtotal * 0.065).toFixed(2);
+  const total = raw.totals?.total ?? raw.data?.totals?.total ?? +(subtotal + tax + (shippingFee || 0)).toFixed(2);
+
+  const cart = raw.cart ?? raw.data?.cart ?? (raw.cartId || raw.id ? raw : null);
+
+  return {
+    items,
+    totals: { subtotal, tax, shippingFee: shippingFee || 0, total },
+    cart,
+  };
 }
 
 async function tryGetOrderIdFrom(url: string): Promise<number | null> {
@@ -82,6 +120,8 @@ async function tryGetOrderIdFrom(url: string): Promise<number | null> {
 export default function PaymentPage() {
   const router = useRouter();
   const [data, setData] = useState<CheckoutData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState<number | null>(null);
   const [method, setMethod] = useState<'COD' | 'CARD'>('COD');
   const [card, setCard] = useState({ number: '', mmYY: '', cvv: '' });
   const [processing, setProcessing] = useState(false);
@@ -91,10 +131,10 @@ export default function PaymentPage() {
     if (!Number.isNaN(localPending) && localPending > 0) return localPending;
 
     const candidates = [
-      `${API_BASE}/orders/pending?userId=${USER_ID}`,
+      `${API_BASE}/orders/${USER_ID}`,
       `${API_BASE}/users/${USER_ID}/orders/pending`,
       `${API_BASE}/orders?userId=${USER_ID}&status=pending`,
-      `${API_BASE}/orders/latest?userId=${USER_ID}`,
+      `${API_BASE}/orders/${USER_ID}`,
     ];
     for (const url of candidates) {
       const id = await tryGetOrderIdFrom(url);
@@ -108,13 +148,15 @@ export default function PaymentPage() {
   useEffect(() => {
     (async () => {
       try {
-        // Try to get cart from backend first
-        const cartResponse = await fetch(`${API_BASE}/carts/${USER_ID}`);
+        setLoading(true);
+        // backend cart endpoint is singular '/cart' (matches Cart page)
+        const cartResponse = await fetch(`${API_BASE}/cart/${USER_ID}`);
         
         if (cartResponse.ok) {
-          const cartData = await cartResponse.json();
+          const raw = await cartResponse.json().catch(() => null);
+          console.debug('Raw cart response from API:', raw);
+          const cartData = normalizeCartResponse(raw);
           
-          // Get checkout data from localStorage for contact/shipping
           const orderData = localStorage.getItem('orderData');
           const legacyCheckout = localStorage.getItem('checkout');
           let localData: CheckoutData | null = null;
@@ -122,7 +164,6 @@ export default function PaymentPage() {
           if (orderData) localData = JSON.parse(orderData);
           else if (legacyCheckout) localData = JSON.parse(legacyCheckout);
 
-          // Merge backend cart with local checkout data
           const orderId = localData?.orderId || await getOrderIdFromBackend();
           
           const merged: CheckoutData = {
@@ -153,7 +194,6 @@ export default function PaymentPage() {
           setData(merged);
           localStorage.setItem('orderData', JSON.stringify(merged));
         } else {
-          // Fallback to localStorage if backend fails
           const orderData = localStorage.getItem('orderData');
           const legacyCheckout = localStorage.getItem('checkout');
           let parsed: CheckoutData | null = null;
@@ -176,8 +216,7 @@ export default function PaymentPage() {
         }
       } catch (error) {
         console.error('Error loading cart:', error);
-        // Fallback to localStorage
-        try {
+          try {
           const orderData = localStorage.getItem('orderData');
           if (orderData) {
             setData(JSON.parse(orderData));
@@ -196,7 +235,6 @@ export default function PaymentPage() {
     if (method === 'COD') return false;
     return !(card.number && card.mmYY && card.cvv);
   }, [method, card, processing]);
-
   const onPay = async () => {
     if (!data) return;
     if (processing) return;
@@ -262,6 +300,48 @@ export default function PaymentPage() {
     }
   };
 
+  // Update item quantity from checkout page
+  const updateQuantity = async (itemId: number, newQty: number) => {
+    if (newQty < 1) {
+      await removeItem(itemId);
+      return;
+    }
+    setUpdating(itemId);
+    try {
+      const res = await fetch(`${API_BASE}/cart/${USER_ID}/items/${itemId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ qty: newQty }),
+      });
+      if (!res.ok) throw new Error('Failed to update quantity');
+      const raw = await res.json().catch(() => null);
+      const normalized = normalizeCartResponse(raw);
+      setData((prev) => prev ? { ...prev, cart: normalized.items, totals: normalized.totals } : prev);
+      localStorage.setItem('orderData', JSON.stringify({ ...(data ?? {}), cart: normalized.items, totals: normalized.totals }));
+    } catch (err) {
+      console.error('Failed to update quantity:', err);
+    } finally {
+      setUpdating(null);
+    }
+  };
+
+  // Remove item from checkout page
+  const removeItem = async (itemId: number) => {
+    setUpdating(itemId);
+    try {
+      const res = await fetch(`${API_BASE}/cart/${USER_ID}/items/${itemId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to remove item');
+      const raw = await res.json().catch(() => null);
+      const normalized = normalizeCartResponse(raw);
+      setData((prev) => prev ? { ...prev, cart: normalized.items, totals: normalized.totals } : prev);
+      localStorage.setItem('orderData', JSON.stringify({ ...(data ?? {}), cart: normalized.items, totals: normalized.totals }));
+    } catch (err) {
+      console.error('Failed to remove item:', err);
+    } finally {
+      setUpdating(null);
+    }
+  };
+
   if (!data) {
     return (
       <div className="page">
@@ -284,7 +364,6 @@ export default function PaymentPage() {
         <Navbar cartItemCount={cart.reduce((s, it) => s + it.qty, 0)} />
 
         <div className="container">
-          {/* Stepper */}
           <div className="stepper">
             <span className="muted">Shipping</span>
             <span className="dash" />
@@ -292,7 +371,6 @@ export default function PaymentPage() {
           </div>
 
           <div className="columns">
-            {/* LEFT: Order Summary */}
             <div className="col">
               <h2 className="section-title">Order Summary</h2>
 
@@ -300,7 +378,7 @@ export default function PaymentPage() {
                 {cart.map((item) => (
                   <div key={item.id} className="list-row">
                     <div className="item">
-                      <div className="thumb">🥬</div>
+                      <div className="thumb"></div>
                       <div>
                         <div className="item-name">{item.name}</div>
                         <div className="item-sub">Qty: {item.qty}</div>
@@ -331,7 +409,6 @@ export default function PaymentPage() {
               </div>
             </div>
 
-            {/* RIGHT: Payment */}
             <div className="col">
               <section className="card">
                 <h3 className="section-title small">Payment Methods</h3>
@@ -414,7 +491,6 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-/* -------------------- CSS -------------------- */
 const styles = `
 :root{
   --bg:#f4f6f8;

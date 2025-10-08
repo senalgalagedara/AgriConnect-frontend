@@ -85,25 +85,27 @@ export default function AssignmentsPage() {
                       <td><span className={`badge ${r.scheduleStatus.replace(/\s+/g,'').toLowerCase()}`}>{r.scheduleStatus}</span></td>
                       <td className="small">
                         <button
-                          className="btnEdit"
-                          onClick={() => {
-                            setEditing(r);
-                            setEditNotes('');
-                            setEditSchedule('');
-                            setEditOpen(true);
-                          }}
-                        >Edit</button>
-                        <button
                           className="btnDelete"
                           onClick={async () => {
                             if (!confirm('Delete this assignment?')) return;
                             try {
                               const res = await fetch(`${API_BASE}/assignments/${r.assignmentId}`, { method: 'DELETE' });
-                              const j = await res.json();
-                              if (!res.ok) throw new Error(j?.error ?? j?.message ?? 'Delete failed');
+                              // Some backends return 204 No Content on successful DELETE. Avoid calling res.json() when there's no body.
+                              if (!res.ok) {
+                                // try to parse JSON error, fall back to text/status
+                                let msg = `Delete failed (${res.status})`;
+                                try {
+                                  const j = await res.json();
+                                  msg = j?.error ?? j?.message ?? msg;
+                                } catch {
+                                  try { const t = await res.text(); if (t) msg = t; } catch { /* ignore */ }
+                                }
+                                throw new Error(msg);
+                              }
+                              // success -> remove from UI
                               setRows(prev => prev.filter(x => x.assignmentId !== r.assignmentId));
                             } catch (e: any) {
-                              alert(e.message ?? 'Failed to delete');
+                              alert(e?.message ?? 'Failed to delete');
                             }
                           }}
                         >Delete</button>
@@ -111,7 +113,7 @@ export default function AssignmentsPage() {
                     </tr>
                   ))}
                   {rows.length === 0 && (
-                    <tr><td colSpan={6} className="note">No assignments yet</td></tr>
+                    <tr><td colSpan={7} className="note">No assignments yet</td></tr>
                   )}
                 </tbody>
               </table>
