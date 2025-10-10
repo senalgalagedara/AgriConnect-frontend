@@ -13,7 +13,7 @@ type Driver = {
   id: number; name: string; vehicle: string; capacity: number; allocated: number; remaining?: number;
 };
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:5000/api';
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:5000/api';
 
 export default function AssignDriverPage() {
   const { id } = useParams<{ id: string }>();
@@ -77,13 +77,32 @@ export default function AssignDriverPage() {
     try {
       // Require a schedule time (now + 1 hour)
       const scheduleTime = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-      const res = await fetch(`${API_BASE}/assignments`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId, driverId, scheduleTime })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error ?? data?.message ?? 'Assign failed');
+      // Try a few possible endpoints / payload shapes to increase compatibility with backend variants
+      const candidates = [
+        { url: `${API_BASE}/assignments`, body: { order_id: orderId, driver_id: driverId, schedule_time: scheduleTime } },
+        { url: `${API_BASE}/assignments`, body: { orderId, driverId, scheduleTime } },
+        { url: `${API_BASE}/orders/${orderId}/assign`, body: { driverId, scheduleTime } },
+      ];
+      let success = false;
+      let lastErr: any = null;
+      for (const c of candidates) {
+        try {
+          const res = await fetch(c.url, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(c.body)
+          });
+          if (!res.ok) {
+            // attempt to parse error
+            let txt = `Assign failed (${res.status})`;
+            try { const j = await res.json(); txt = j?.error ?? j?.message ?? txt; } catch { try { const t = await res.text(); if (t) txt = t; } catch {} }
+            throw new Error(txt);
+          }
+          success = true;
+          break;
+        } catch (err) {
+          lastErr = err;
+        }
+      }
+      if (!success) throw lastErr ?? new Error('Assign failed');
       // success -> go to assigned drivers page
       router.push('/dashboard/orderdelivery/assigneddrivers');
     } catch (e: any) {

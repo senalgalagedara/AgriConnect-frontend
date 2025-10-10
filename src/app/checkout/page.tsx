@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Navbar from '../../components/NavbarHome';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:5000/api';
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:5000/api';
 const USER_ID =1;
 
 export type CartItem = {
@@ -108,8 +108,10 @@ function normalizeCartResponse(raw: any) {
 
 async function tryGetOrderIdFrom(url: string): Promise<number | null> {
   try {
-    const res = await fetch(url, { method: 'GET', headers: { 'Content-Type': 'application/json' } });
+    const res = await fetch(url, { method: 'GET', headers: { 'Content-Type': 'application/json' }, cache: 'no-store' });
     if (!res.ok) return null;
+    // handle 204 No Content gracefully
+    if (res.status === 204) return null;
     const json = await res.json().catch(() => null);
     return extractOrderId(json);
   } catch {

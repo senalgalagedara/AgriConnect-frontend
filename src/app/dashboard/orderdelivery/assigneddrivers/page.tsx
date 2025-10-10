@@ -14,7 +14,7 @@ type Row = {
   scheduleStatus: 'Scheduled' | 'In Transit' | 'Completed' | 'Cancelled' | string;
 };
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:5000/api';
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:5000/api';
 
 export default function AssignmentsPage() {
   const [rows, setRows] = useState<Row[]>([]);
@@ -89,20 +89,23 @@ export default function AssignmentsPage() {
                           onClick={async () => {
                             if (!confirm('Delete this assignment?')) return;
                             try {
-                              const res = await fetch(`${API_BASE}/assignments/${r.assignmentId}`, { method: 'DELETE' });
-                              // Some backends return 204 No Content on successful DELETE. Avoid calling res.json() when there's no body.
-                              if (!res.ok) {
-                                // try to parse JSON error, fall back to text/status
-                                let msg = `Delete failed (${res.status})`;
+                              // try primary endpoint then admin fallback
+                              const candidates = [
+                                `${API_BASE}/assignments/${r.assignmentId}`,
+                                `${API_BASE}/admin/assignments/${r.assignmentId}`,
+                              ];
+                              let deleted = false;
+                              let lastErr: any = null;
+                              for (const url of candidates) {
                                 try {
-                                  const j = await res.json();
-                                  msg = j?.error ?? j?.message ?? msg;
-                                } catch {
-                                  try { const t = await res.text(); if (t) msg = t; } catch { /* ignore */ }
-                                }
-                                throw new Error(msg);
+                                  const res = await fetch(url, { method: 'DELETE' });
+                                  if (res.ok || res.status === 204) { deleted = true; break; }
+                                  let msg = `Delete failed (${res.status})`;
+                                  try { const j = await res.json(); msg = j?.error ?? j?.message ?? msg; } catch { try { const t = await res.text(); if (t) msg = t; } catch {} }
+                                  throw new Error(msg);
+                                } catch (err) { lastErr = err; }
                               }
-                              // success -> remove from UI
+                              if (!deleted) throw lastErr ?? new Error('Delete failed');
                               setRows(prev => prev.filter(x => x.assignmentId !== r.assignmentId));
                             } catch (e: any) {
                               alert(e?.message ?? 'Failed to delete');

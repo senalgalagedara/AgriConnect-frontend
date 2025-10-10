@@ -21,7 +21,7 @@ type SiteStats = {
 };
 
 /* ============ Backend config (adjust if needed) ============ */
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:5000/api";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5000/api";
 
 /** Expects: array of orders OR { data: [...] } */
 // Use admin orders endpoint which returns order list with customer name, email, phone, total and created_at
@@ -32,6 +32,7 @@ const STATS_URL = `${API_BASE}/stats`; // alternative: `${API_BASE}/orders/stats
 
 /** DELETE /orders/:id */
 const DELETE_ORDER_URL = (orderId: string | number) => `${API_BASE}/orders/${orderId}`;
+const DELETE_ORDER_URL_FALLBACK = (orderId: string | number) => `${API_BASE}/admin/orders/${orderId}`;
 /* =========================================================== */
 
 export default function PaymentManagerPage() {
@@ -156,8 +157,20 @@ export default function PaymentManagerPage() {
     if (!confirm(`Delete order ${id}?`)) return;
     try {
       setDeletingId(id);
-      const r = await fetch(DELETE_ORDER_URL(id), { method: "DELETE" });
-      if (!r.ok) throw new Error(await r.text());
+      // try primary delete endpoint and fallback admin endpoint
+      const urls = [DELETE_ORDER_URL(id), DELETE_ORDER_URL_FALLBACK(id)];
+      let success = false;
+      let lastErr: any = null;
+      for (const u of urls) {
+        try {
+          const r = await fetch(u, { method: "DELETE" });
+          if (r.ok || r.status === 204) { success = true; break; }
+          let txt = `Delete failed (${r.status})`;
+          try { const j = await r.json(); txt = j?.error ?? j?.message ?? txt; } catch { try { const t = await r.text(); if (t) txt = t; } catch {} }
+          throw new Error(txt);
+        } catch (err) { lastErr = err; }
+      }
+      if (!success) throw lastErr ?? new Error('Delete failed');
       setOrders((prev) => prev.filter((o) => o.id !== id));
     } catch (e: any) {
       alert(`Could not delete: ${e?.message || "Unknown error"}`);
