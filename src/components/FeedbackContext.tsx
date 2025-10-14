@@ -265,7 +265,7 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
         <button
           type="button"
           onClick={close}
-          style={{flex:1, backgroundColor:'#9333ea', color:'white', fontWeight:600, padding:'12px 24px', border:'none', borderRadius:12, cursor:'pointer'}}
+          style={{flex:1, backgroundColor:'#9333ea', color:'black', fontWeight:600, padding:'12px 24px', border:'none', borderRadius:12, cursor:'pointer'}}
           onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#7c3aed'}
           onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#9333ea'}
         >
@@ -372,12 +372,6 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
                     )}
                     <span>{options?.submitLabel || 'Submit feedback'}</span>
                   </button>
-
-                  {/* debug endpoint (visible only in development) */}
-                  <div className="pt-3 text-xs text-gray-400">
-                    <div>Posting to logical path: <span className="font-mono">{DEBUG_ENDPOINT}</span></div>
-                    <div className="text-gray-500">Final URL built from apiRequest (base + optional prefix + rewrite).</div>
-                  </div>
 
                   <div className="text-center" style={{marginTop: '16px', marginBottom: '12px'}}>
                     <span className="text-xs font-medium text-gray-400 tracking-wider">OR</span>
