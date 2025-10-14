@@ -111,7 +111,7 @@ export default function DashboardFeedbackPage() {
         const prev = feedbacks;
         setFeedbacks(fbs => fbs.filter(f => f.id !== id));
         try {
-            await apiRequest(`/feedback/${id}`, { method: 'D    ELETE' });
+            await apiRequest(`/feedback/${id}`, { method: 'DELETE' });
         } catch (err:any) {
             console.error('Delete failed', err);
             alert(err?.message || 'Failed to delete feedback');
