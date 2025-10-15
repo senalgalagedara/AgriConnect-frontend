@@ -59,10 +59,22 @@ export default function Home() {
   const handleAddUser = async (userData: CreateUserData) => {
     try {
       setError(null);
+      
+      // Convert camelCase to snake_case for backend compatibility
+      const postData = {
+        email: userData.email,
+        first_name: userData.firstName,
+        last_name: userData.lastName,
+        phone: userData.contactNumber,
+        role: userData.role,
+        address: userData.address,
+        password: userData.password,
+      };
+      
       const res = await fetch(`${API_BASE_URL}/users`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(userData),
+        body: JSON.stringify(postData),
       });
 
       if (!res.ok) {
@@ -89,21 +101,44 @@ export default function Home() {
   const handleUpdateUser = async (userId: number, updates: CreateUserData) => {
     try {
       setError(null);
+      
+      // Convert camelCase to snake_case for backend compatibility
+      const updateData: any = {
+        email: updates.email,
+        first_name: updates.firstName,
+        last_name: updates.lastName,
+        phone: updates.contactNumber,
+        role: updates.role,
+        address: updates.address,
+      };
+      
+      // Only include password if provided
+      if (updates.password && updates.password.trim() !== '') {
+        updateData.password = updates.password;
+      }
+      
+      console.log('Updating user:', userId, updateData); // Debug log
       const res = await fetch(`${API_BASE_URL}/users/${userId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates),
+        body: JSON.stringify(updateData),
       });
+      console.log('Update response status:', res.status); // Debug log
       if (!res.ok) {
         const body = await res.text();
+        console.error('Update failed:', body); // Debug log
         throw new Error(body || 'Failed to update user');
       }
       const updated = await res.json();
+      console.log('Updated user data:', updated); // Debug log
       const updUser = normalizeUser(updated?.data ?? updated);
       setUsers(prev => prev.map(u => (u.id === userId ? updUser : u)));
       setEditingUser(null);
       setActiveTab('users');
+      setShowSuccessMessage(true);
+      setTimeout(() => setShowSuccessMessage(false), 3000);
     } catch (e: any) {
+      console.error('Update error:', e); // Debug log
       setError(e?.message || 'Failed to update user');
     }
   };
@@ -147,6 +182,7 @@ export default function Home() {
               contactNumber: editingUser.contactNumber,
               role: editingUser.role,
               address: editingUser.address,
+              password: '', // Empty password for edit mode
             } : undefined}
             submitLabel="Update User"
           />

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useFeedback } from "@/components/FeedbackContext";
+import { useAuth } from "@/context/AuthContext";
 import Link from "next/link";
 import Image from "next/image";
 import { ShoppingCart, Star, ChevronDown, ChevronUp, Filter } from "lucide-react";
@@ -37,6 +38,7 @@ type SortDir = "asc" | "desc";
 
 export default function HomePage() {
   const { open: openFeedback } = useFeedback();
+  const { user } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -84,6 +86,7 @@ export default function HomePage() {
   const fetchProducts = async () => {
     try {
       setLoading(true);
+      setError(null);
       const response = await fetch(`${API_BASE_URL}/products/province/${WESTERN_PROVINCE_ID}`);
       if (!response.ok) throw new Error("Failed to fetch products");
 
@@ -96,9 +99,16 @@ export default function HomePage() {
       } else {
         setError(data.message || "Failed to fetch products");
       }
-    } catch (err) {
-      console.error("Error fetching products:", err);
-      setError("Failed to fetch products");
+    } catch (err: any) {
+      // Silently handle network errors when backend is not running
+      if (err.message === "Failed to fetch" || err.name === "TypeError") {
+        console.info("Products backend not available. Using empty product list.");
+        setProducts([]);
+        setError(null); // Don't show error to user when backend is simply not running
+      } else {
+        console.error("Error fetching products:", err);
+        setError("Failed to fetch products. Please try again later.");
+      }
     } finally {
       setLoading(false);
     }
@@ -169,9 +179,26 @@ export default function HomePage() {
         console.error("Failed to add item to cart:", errorText);
         alert("Failed to add item to cart. " + errorText);
       }
-    } catch (err) {
-      console.error("Error adding to cart:", err);
-      alert("Error adding to cart. See console for details.");
+    } catch (err: any) {
+      // Handle backend not available gracefully - still update local cart
+      if (err.message === "Failed to fetch" || err.name === "TypeError") {
+        console.info("Cart backend not available. Adding to local cart only.");
+        const existingItemIndex = cartItems.findIndex((item) => item.id === product.id);
+        let updated: CartItem[];
+        if (existingItemIndex >= 0) {
+          updated = cartItems.map((it, i) => (i === existingItemIndex ? { ...it, qty: it.qty + 1 } : it));
+        } else {
+          updated = [
+            ...cartItems,
+            { id: product.id, name: product.product_name, price: product.final_price, qty: 1, unit: product.unit },
+          ];
+        }
+        setCartItems(updated);
+        saveCartToLocalStorage(updated);
+      } else {
+        console.error("Error adding to cart:", err);
+        alert("Error adding to cart. Please try again later.");
+      }
     } finally {
       setAddingToCart(null);
     }
@@ -183,7 +210,14 @@ export default function HomePage() {
 
   return (
     <div className="home-container">
-      <Navbar cartItemCount={getCartItemCount()} />
+      <Navbar 
+        cartItemCount={getCartItemCount()} 
+        user={user ? {
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+        } : null}
+      />
 
       {/* HERO */}
       <section className="hero-section">

@@ -114,14 +114,17 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     if (response.status === 404) {
       console.warn('[apiRequest] 404 Not Found', { url, method: options.method || 'GET' });
     } else if (response.status >= 500) {
-      console.error('[apiRequest] Server error', {
-        status: response.status,
-        url,
-        method: options.method || 'GET',
-        prefix: API_PATH_PREFIX || '(none)',
-        bodySnippet: typeof body === 'string' ? body.slice(0, 400) : undefined,
-        responseFragment: typeof parsed === 'string' ? parsed.slice(0, 400) : parsed,
-      });
+      // Only log server errors if not auth session check (to avoid spam when backend is down)
+      if (!url.includes('/auth/session')) {
+        console.error('[apiRequest] Server error', {
+          status: response.status,
+          url,
+          method: options.method || 'GET',
+          prefix: API_PATH_PREFIX || '(none)',
+          bodySnippet: typeof body === 'string' ? body.slice(0, 400) : undefined,
+          responseFragment: typeof parsed === 'string' ? parsed.slice(0, 400) : parsed,
+        });
+      }
     }
     let message: string | undefined;
     if (parsed && typeof parsed === 'object') {
