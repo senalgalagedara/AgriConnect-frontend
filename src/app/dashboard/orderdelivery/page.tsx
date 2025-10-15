@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Sidebar from '../../../components/sidebar';
-import NavbarHome from '../../../components/NavbarHome';
+import NavbarHome from '../../../components/navbar';
 import Modal from '../../../components/Modal';
 
 type Order = {

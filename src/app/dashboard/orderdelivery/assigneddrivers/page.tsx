@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Sidebar from '../../../../components/sidebar';
-import NavbarHome from '../../../../components/NavbarHome';
+import NavbarHome from '../../../../components/navbar';
 import Modal from '../../../../components/Modal';
 
 type Row = {

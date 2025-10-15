@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Sidebar from '../../../../../components/sidebar';
-import NavbarHome from '../../../../../components/NavbarHome';
+import NavbarHome from '../../../../../components/navbar';
 
 type Order = {
   id: number; customerName: string; address: string; contactNo: string;

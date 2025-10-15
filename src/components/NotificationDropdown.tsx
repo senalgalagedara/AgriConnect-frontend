@@ -14,6 +14,7 @@ interface Notification {
     | 'stock_updated'
     | 'order_placed'
     | 'order_cancelled'
+    | 'driver_assigned'
     | 'milestone_earnings'
     | 'milestone_orders';
   message: string;
@@ -26,6 +27,8 @@ interface Notification {
   farmer_name?: string;
   order_no?: number;
   order_total?: number;
+  driver_name?: string;
+  driver_phone?: string;
 }
 
 interface NotificationDropdownProps {
@@ -172,6 +175,8 @@ export default function NotificationDropdown({ className = '' }: NotificationDro
         return '🛒';
       case 'order_cancelled':
         return '❌';
+      case 'driver_assigned':
+        return '🚗';
       case 'milestone_earnings':
         return '💰';
       case 'milestone_orders':
@@ -197,6 +202,8 @@ export default function NotificationDropdown({ className = '' }: NotificationDro
         return '#10b981'; // green
       case 'order_cancelled':
         return '#dc2626'; // red
+      case 'driver_assigned':
+        return '#0891b2'; // cyan-600
       case 'milestone_earnings':
         return '#eab308'; // yellow
       case 'milestone_orders':
@@ -222,6 +229,8 @@ export default function NotificationDropdown({ className = '' }: NotificationDro
         return 'Order Placed';
       case 'order_cancelled':
         return 'Order Cancelled';
+      case 'driver_assigned':
+        return 'Driver Assigned';
       case 'milestone_earnings':
         return 'Earnings Milestone!';
       case 'milestone_orders':
@@ -343,6 +352,24 @@ export default function NotificationDropdown({ className = '' }: NotificationDro
                     <div className="modal-info-row">
                       <span className="info-label">Total:</span>
                       <span className="info-value">Rs. {selectedNotification.order_total.toFixed(2)}</span>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Driver assignment notifications */}
+              {selectedNotification.notification_type === 'driver_assigned' && (
+                <>
+                  {selectedNotification.driver_name && (
+                    <div className="modal-info-row">
+                      <span className="info-label">Driver:</span>
+                      <span className="info-value">{selectedNotification.driver_name}</span>
+                    </div>
+                  )}
+                  {selectedNotification.driver_phone && (
+                    <div className="modal-info-row">
+                      <span className="info-label">Phone:</span>
+                      <span className="info-value">{selectedNotification.driver_phone}</span>
                     </div>
                   )}
                 </>
