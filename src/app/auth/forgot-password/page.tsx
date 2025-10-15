@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,6 +13,7 @@ import { ArrowLeft, Phone, Lock, Eye, EyeOff, Leaf, Shield } from 'lucide-react'
 type Step = 'phone' | 'otp' | 'reset';
 
 export default function ForgotPasswordPage() {
+  const router = useRouter();
   const [currentStep, setCurrentStep] = useState<Step>('phone');
   const [formData, setFormData] = useState({
     contactNumber: '',
@@ -102,12 +104,22 @@ export default function ForgotPasswordPage() {
     setIsLoading(true);
     
     try {
+      // TODO: Replace with your actual backend endpoint
+      // await apiRequest('/auth/forgot-password/send-otp', {
+      //   method: 'POST',
+      //   body: { contactNumber: formData.contactNumber }
+      // });
+      
+      // Temporary mock - remove when backend is ready
       await new Promise(resolve => setTimeout(resolve, 1500));
       console.log('Sending OTP to:', formData.contactNumber);
+      
       setCurrentStep('otp');
       startOtpTimer();
     } catch (error) {
       console.error('Send OTP error:', error);
+      const errorMsg = error instanceof Error ? error.message : 'Failed to send OTP';
+      setErrors({ contactNumber: errorMsg });
     } finally {
       setIsLoading(false);
     }
@@ -121,11 +133,21 @@ export default function ForgotPasswordPage() {
     setIsLoading(true);
     
     try {
+      // TODO: Replace with your actual backend endpoint
+      // await apiRequest('/auth/forgot-password/verify-otp', {
+      //   method: 'POST',
+      //   body: { contactNumber: formData.contactNumber, otp: formData.otp }
+      // });
+      
+      // Temporary mock - remove when backend is ready
       await new Promise(resolve => setTimeout(resolve, 1500));
       console.log('Verifying OTP:', formData.otp);
+      
       setCurrentStep('reset');
     } catch (error) {
       console.error('Verify OTP error:', error);
+      const errorMsg = error instanceof Error ? error.message : 'Invalid OTP';
+      setErrors({ otp: errorMsg });
     } finally {
       setIsLoading(false);
     }
@@ -139,11 +161,26 @@ export default function ForgotPasswordPage() {
     setIsLoading(true);
     
     try {
+      // TODO: Replace with your actual backend endpoint
+      // await apiRequest('/auth/forgot-password/reset', {
+      //   method: 'POST',
+      //   body: {
+      //     contactNumber: formData.contactNumber,
+      //     otp: formData.otp,
+      //     newPassword: formData.newPassword
+      //   }
+      // });
+      
+      // Temporary mock - remove when backend is ready
       await new Promise(resolve => setTimeout(resolve, 2000));
       console.log('Resetting password');
-      // Redirect to login or show success message
+      
+      // Redirect to login with success message
+      router.push('/auth/login?reset=success');
     } catch (error) {
       console.error('Reset password error:', error);
+      const errorMsg = error instanceof Error ? error.message : 'Failed to reset password';
+      setErrors({ newPassword: errorMsg });
     } finally {
       setIsLoading(false);
     }
