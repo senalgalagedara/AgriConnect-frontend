@@ -151,83 +151,86 @@ export default function PaymentPage() {
     (async () => {
       try {
         setLoading(true);
-        // backend cart endpoint is singular '/cart' (matches Cart page)
-        const cartResponse = await fetch(`${API_BASE}/cart/${USER_ID}`);
         
-        if (cartResponse.ok) {
-          const raw = await cartResponse.json().catch(() => null);
-          console.debug('Raw cart response from API:', raw);
-          const cartData = normalizeCartResponse(raw);
+        // Get order ID from localStorage first
+        const orderDataStr = localStorage.getItem('orderData');
+        const legacyCheckout = localStorage.getItem('checkout');
+        let localData: CheckoutData | null = null;
+
+        if (orderDataStr) localData = JSON.parse(orderDataStr);
+        else if (legacyCheckout) localData = JSON.parse(legacyCheckout);
+
+        const orderId = localData?.orderId || Number(localStorage.getItem('pendingOrderId')) || await getOrderIdFromBackend();
+        
+        console.log('🔍 Order ID for checkout:', orderId);
+
+        // If we have an order ID, fetch order items from order_items table
+        if (orderId && orderId > 0) {
+          const orderResponse = await fetch(`${API_BASE}/orders/${orderId}`);
           
-          const orderData = localStorage.getItem('orderData');
-          const legacyCheckout = localStorage.getItem('checkout');
-          let localData: CheckoutData | null = null;
+          if (orderResponse.ok) {
+            const orderData = await orderResponse.json();
+            console.log('📦 Order data from backend:', orderData);
+            
+            // Extract items from response (check both data.items and data.order.items)
+            const items = orderData.data?.items || orderData.items || [];
+            const order = orderData.data?.order || orderData.data || orderData;
+            
+            console.log('📋 Order items:', items);
+            
+            const merged: CheckoutData = {
+              orderId: orderId,
+              cart: items,
+              contact: order.contact || localData?.contact || {
+                firstName: '',
+                lastName: '',
+                email: '',
+                phone: ''
+              },
+              shipping: order.shipping || localData?.shipping || {
+                house: '',
+                address: '',
+                city: '',
+                state: '',
+                postalCode: '',
+                sameAsBilling: false
+              },
+              totals: {
+                subtotal: Number(order.subtotal || 0),
+                tax: Number(order.tax || 0),
+                shippingFee: Number(order.shipping_fee || 0),
+                total: Number(order.total || 0)
+              }
+            };
 
-          if (orderData) localData = JSON.parse(orderData);
-          else if (legacyCheckout) localData = JSON.parse(legacyCheckout);
-
-          const orderId = localData?.orderId || await getOrderIdFromBackend();
-          
-          const merged: CheckoutData = {
-            orderId: orderId || 0,
-            cart: cartData.items || [],
-            contact: localData?.contact || {
-              firstName: '',
-              lastName: '',
-              email: '',
-              phone: ''
-            },
-            shipping: localData?.shipping || {
-              house: '',
-              address: '',
-              city: '',
-              state: '',
-              postalCode: '',
-              sameAsBilling: false
-            },
-            totals: cartData.totals || {
-              subtotal: 0,
-              tax: 0,
-              shippingFee: 0,
-              total: 0
-            }
-          };
-
-          setData(merged);
-          localStorage.setItem('orderData', JSON.stringify(merged));
-        } else {
-          const orderData = localStorage.getItem('orderData');
-          const legacyCheckout = localStorage.getItem('checkout');
-          let parsed: CheckoutData | null = null;
-
-          if (orderData) parsed = JSON.parse(orderData);
-          else if (legacyCheckout) parsed = JSON.parse(legacyCheckout);
-
-          if (parsed && (!parsed.orderId || Number.isNaN(parsed.orderId))) {
-            const backendOrderId = await getOrderIdFromBackend();
-            if (backendOrderId) {
-              const updated = { ...parsed, orderId: backendOrderId };
-              setData(updated);
-              localStorage.setItem('orderData', JSON.stringify(updated));
-            } else {
-              setData(parsed);
-            }
+            setData(merged);
+            localStorage.setItem('orderData', JSON.stringify(merged));
           } else {
-            setData(parsed);
+            console.warn('❌ Failed to fetch order, using localStorage');
+            if (localData) {
+              setData(localData);
+            }
+          }
+        } else {
+          console.warn('⚠️ No order ID found, using localStorage');
+          if (localData) {
+            setData(localData);
           }
         }
       } catch (error) {
-        console.error('Error loading cart:', error);
-          try {
-          const orderData = localStorage.getItem('orderData');
-          if (orderData) {
-            setData(JSON.parse(orderData));
+        console.error('Error loading order:', error);
+        try {
+          const orderDataStr = localStorage.getItem('orderData');
+          if (orderDataStr) {
+            setData(JSON.parse(orderDataStr));
           } else {
             setData(null);
           }
         } catch {
           setData(null);
         }
+      } finally {
+        setLoading(false);
       }
     })();
   }, []);
@@ -257,21 +260,43 @@ export default function PaymentPage() {
 
     setProcessing(true);
     try {
+      console.log('💳 Processing payment for order:', orderId, 'Method:', method);
+      
+      const requestBody: any = {
+        status: 'processing',
+        paymentMethod: method,
+         };
+         if (method === 'CARD' && card.number) {
+           const digits = card.number.replace(/\D/g, '');
+           requestBody.cardLast4 = digits.slice(-4);
+      };
+      if (method === 'CARD' && card.number) {
+        const digits = card.number.replace(/\D/g, '');
+        requestBody.cardLast4 = digits.slice(-4);
+      }
+      console.log('📤 Request body:', requestBody);
+      
       const response = await fetch(`${API_BASE}/orders/${orderId}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          status: 'processing',
-          paymentMethod: method,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
+      console.log('📡 Payment response status:', response.status, response.statusText);
+
       if (!response.ok) {
-        let message = 'Failed to update order';
+        let message = 'Failed to update order status';
+        const responseText = await response.text();
+        console.error('❌ Raw response:', responseText);
+        
         try {
-          const error = await response.json();
-          message = error?.message || message;
-        } catch {}
+          const error = JSON.parse(responseText);
+          console.error('❌ Payment error response:', error);
+          message = error?.message || error?.error || message;
+        } catch (parseError) {
+          console.error('❌ Could not parse error response, raw text:', responseText);
+          message = responseText || message;
+        }
         throw new Error(message);
       }
 
@@ -376,19 +401,35 @@ export default function PaymentPage() {
             <div className="col">
               <h2 className="section-title">Order Summary</h2>
 
-              <div className="list">
-                {cart.map((item) => (
-                  <div key={item.id} className="list-row">
-                    <div className="item">
-                      <div className="thumb"></div>
-                      <div>
-                        <div className="item-name">{item.name}</div>
-                        <div className="item-sub">Qty: {item.qty}</div>
-                      </div>
-                    </div>
-                    <div className="price">${(item.price * item.qty).toFixed(2)}</div>
-                  </div>
-                ))}
+              <div className="table-container">
+                <table className="items-table">
+                  <thead>
+                    <tr>
+                      <th>Product</th>
+                      <th>Price</th>
+                      <th>Quantity</th>
+                      <th>Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cart.map((item) => (
+                      <tr key={item.id}>
+                        <td data-label="Product">
+                          <div className="product-info">
+                            <div className="thumb">🛒</div>
+                            <div>
+                              <div className="item-name">{item.name || 'Product'}</div>
+                              <div className="item-id">ID: {item.product_id}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td data-label="Price" className="price-cell">${Number(item.price || 0).toFixed(2)}</td>
+                        <td data-label="Quantity" className="qty-cell">{item.qty || 0}</td>
+                        <td data-label="Total" className="total-cell">${(Number(item.price || 0) * Number(item.qty || 0)).toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
 
               <div className="card totals">
@@ -557,29 +598,85 @@ const styles = `
   padding:16px;
 }
 
-.list{
-  display:flex;
-  flex-direction:column;
-  gap:12px;
-}
-.list-row{
-  display:flex; justify-content:space-between; align-items:center;
+.table-container{
   background:var(--card);
   border:1px solid var(--border);
   border-radius:12px;
-  padding:12px 14px;
+  overflow:hidden;
 }
-.item{ display:flex; align-items:center; gap:12px; }
+
+.items-table{
+  width:100%;
+  border-collapse:collapse;
+}
+
+.items-table thead{
+  background:#f9fafb;
+}
+
+.items-table th{
+  text-align:left;
+  padding:12px 16px;
+  font-weight:600;
+  font-size:13px;
+  color:#374151;
+  text-transform:uppercase;
+  letter-spacing:0.025em;
+  border-bottom:1px solid var(--border);
+}
+
+.items-table td{
+  padding:14px 16px;
+  border-bottom:1px solid #f3f4f6;
+}
+
+.items-table tbody tr:last-child td{
+  border-bottom:none;
+}
+
+.items-table tbody tr:hover{
+  background:#fafbfc;
+}
+
+.product-info{
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+
 .thumb{
-  width:48px; height:48px; border-radius:10px;
+  width:48px;
+  height:48px;
+  border-radius:8px;
   background:#eef6f0;
-  display:flex; align-items:center; justify-content:center;
+  display:flex;
+  align-items:center;
+  justify-content:center;
   border:1px solid #dbe7df;
   font-size:20px;
+  flex-shrink:0;
 }
-.item-name{ font-weight:600; }
-.item-sub{ color:var(--muted); font-size:13px; }
-.price{ font-weight:600; }
+
+.item-name{
+  font-weight:600;
+  color:var(--text);
+  margin-bottom:4px;
+}
+
+.item-id{
+  color:var(--muted);
+  font-size:12px;
+}
+
+.price-cell, .qty-cell, .total-cell{
+  font-weight:600;
+  color:var(--text);
+  text-align:center;
+}
+
+.total-cell{
+  color:var(--brand);
+}
 
 .totals{ margin-top:16px; padding:12px 16px; }
 .totals-row{
@@ -663,4 +760,54 @@ const styles = `
 }
 .empty h2{ margin:0 0 8px; font-size:22px; }
 .empty p{ color:var(--muted); margin:0 0 16px; }
+
+@media(max-width:768px){
+  .items-table thead{
+    display:none;
+  }
+  
+  .items-table, .items-table tbody, .items-table tr, .items-table td{
+    display:block;
+    width:100%;
+  }
+  
+  .items-table tr{
+    margin-bottom:16px;
+    border:1px solid var(--border);
+    border-radius:12px;
+    overflow:hidden;
+  }
+  
+  .items-table td{
+    text-align:right;
+    padding:12px 16px;
+    position:relative;
+    border-bottom:1px solid #f3f4f6;
+  }
+  
+  .items-table td:before{
+    content:attr(data-label);
+    float:left;
+    font-weight:600;
+    color:#6b7280;
+    font-size:12px;
+    text-transform:uppercase;
+  }
+  
+  .items-table td:first-child{
+    text-align:left;
+  }
+  
+  .items-table td:first-child:before{
+    display:none;
+  }
+  
+  .product-info{
+    padding:4px 0;
+  }
+  
+  .price-cell, .qty-cell, .total-cell{
+    text-align:right;
+  }
+}
 `;

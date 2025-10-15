@@ -131,7 +131,10 @@ export default function Navbar({
             {typeof cartAmount !== 'undefined' && (
               <span className="cartAmount">{typeof cartAmount === 'number' ? `$${cartAmount}` : cartAmount}</span>
             )}
-            {cartItemCount > 0 && <span className="badge">{cartItemCount}</span>}
+            {/* Render badge only when there are items in cart (positive integer) */}
+            {Number.isFinite(cartItemCount) && cartItemCount > 0 ? (
+              <span className="badge" aria-live="polite">{cartItemCount}</span>
+            ) : null}
           </Link>
 
           {!user ? (
