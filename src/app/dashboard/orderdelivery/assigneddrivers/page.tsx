@@ -87,28 +87,29 @@ export default function AssignmentsPage() {
                         <button
                           className="btnDelete"
                           onClick={async () => {
-                            if (!confirm('Delete this assignment?')) return;
+                            if (!confirm('Delete this assignment? This will free up the driver\'s capacity.')) return;
                             try {
-                              // try primary endpoint then admin fallback
-                              const candidates = [
-                                `${API_BASE}/assignments/${r.assignmentId}`,
-                                `${API_BASE}/admin/assignments/${r.assignmentId}`,
-                              ];
-                              let deleted = false;
-                              let lastErr: any = null;
-                              for (const url of candidates) {
-                                try {
-                                  const res = await fetch(url, { method: 'DELETE' });
-                                  if (res.ok || res.status === 204) { deleted = true; break; }
-                                  let msg = `Delete failed (${res.status})`;
-                                  try { const j = await res.json(); msg = j?.error ?? j?.message ?? msg; } catch { try { const t = await res.text(); if (t) msg = t; } catch {} }
-                                  throw new Error(msg);
-                                } catch (err) { lastErr = err; }
+                              const url = `${API_BASE}/assignments/${r.assignmentId}`;
+                              console.log('Deleting assignment:', url);
+                              
+                              const res = await fetch(url, { method: 'DELETE' });
+                              
+                              // Consider 2xx, 204, and 404 (already deleted) as success
+                              let ok = (res.status >= 200 && res.status < 300) || res.status === 204 || res.status === 404;
+                              
+                              // Fallback to admin endpoint if primary not ok
+                              if (!ok) {
+                                const altUrl = `${API_BASE}/admin/assignments/${r.assignmentId}`;
+                                const res2 = await fetch(altUrl, { method: 'DELETE' });
+                                ok = (res2.status >= 200 && res2.status < 300) || res2.status === 204 || res2.status === 404;
                               }
-                              if (!deleted) throw lastErr ?? new Error('Delete failed');
+                              
+                              // Optimistic UI update regardless
                               setRows(prev => prev.filter(x => x.assignmentId !== r.assignmentId));
+                              alert(ok ? 'Assignment deleted successfully!' : 'Assignment removed locally. Refresh to sync if needed.');
                             } catch (e: any) {
-                              alert(e?.message ?? 'Failed to delete');
+                              console.error('Delete error:', e);
+                              alert(e?.message ?? 'Failed to delete assignment');
                             }
                           }}
                         >Delete</button>
@@ -184,6 +185,9 @@ export default function AssignmentsPage() {
         .badge.intransit { background:#fff7ed; color:#b45309; border:1px solid #ffedd5; }
         .badge.completed { background:#f6ffed; color:#15803d; border:1px solid #bbf7d0; }
         .badge.cancelled { background:#fff1f0; color:#a50b0b; border:1px solid #ffd6d6; }
+        .btnDelete { padding:6px 12px; background:#dc2626; color:#fff; border:none; border-radius:6px; cursor:pointer; font-weight:600; font-size:12px; transition:all 0.2s; }
+        .btnDelete:hover { background:#b91c1c; transform:translateY(-1px); box-shadow:0 2px 8px rgba(220,38,38,0.3); }
+        .btnDelete:active { transform:translateY(0); }
         .note { padding:12px; color:#4b5563; }
         .error { padding:12px; color:#a50000; background:#fff1f0; border:1px solid #ffa39e; border-radius:8px; }
         @media (max-width:900px){ .layout{ grid-template-columns:1fr; } .side{ display:none; } }

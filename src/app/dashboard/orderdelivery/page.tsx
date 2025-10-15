@@ -165,13 +165,14 @@ export default function OrdersPage() {
                           </button>
 
                           <button
-                            className="btn danger"
+                            className="btn deleteBtn"
                             onClick={async () => {
                               if (!confirm('Delete this order? This cannot be undone.')) return;
                               try {
                                 const res = await fetch(`${API_BASE}/orders/${o.id}`, { method: 'DELETE' });
                                 const data = await res.json();
                                 if (!res.ok) throw new Error(data?.error ?? data?.message ?? 'Delete failed');
+                                // Remove from the table immediately
                                 setOrders(prev => prev.filter(x => x.id !== o.id));
                               } catch (e: any) {
                                 alert(e.message ?? 'Failed to delete');
@@ -327,10 +328,15 @@ export default function OrdersPage() {
         .btn:focus-visible { outline: none; box-shadow: var(--ring); }
 
         .btn.primary {
-          background: linear-gradient(180deg,var(--primary),var(--primary-600));
-          color: #fff; border-color: #119c45; box-shadow: 0 6px 14px rgba(22,163,74,0.18);
+          background: #16a34a;
+          color: #ffffff; 
+          border-color: #16a34a; 
+          box-shadow: 0 6px 14px rgba(22,163,74,0.18);
         }
-        .btn.primary:hover { filter: brightness(1.02); }
+        .btn.primary:hover { 
+          background: #15803d;
+          border-color: #15803d;
+        }
         .btn.primary.isDisabled { background: #e5e7eb; color:#6b7280; border-color:#e5e7eb; box-shadow:none; cursor: not-allowed; pointer-events: none; }
 
         .btn.outline {
@@ -348,6 +354,17 @@ export default function OrdersPage() {
           box-shadow: 0 6px 14px rgba(220,38,38,0.18);
         }
         .btn.danger:hover { filter: brightness(1.02); }
+
+        .btn.deleteBtn {
+          background: #ffffff;
+          color: #dc2626;
+          border: 1px solid #fecaca;
+          font-weight: 700;
+        }
+        .btn.deleteBtn:hover {
+          background: #fef2f2;
+          border-color: #fca5a5;
+        }
 
         .btnGroup { display:flex; gap:8px; justify-content: flex-end; }
 

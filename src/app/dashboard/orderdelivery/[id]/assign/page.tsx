@@ -77,36 +77,47 @@ export default function AssignDriverPage() {
     try {
       // Require a schedule time (now + 1 hour)
       const scheduleTime = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-      // Try a few possible endpoints / payload shapes to increase compatibility with backend variants
-      const candidates = [
-        { url: `${API_BASE}/assignments`, body: { order_id: orderId, driver_id: driverId, schedule_time: scheduleTime } },
-        { url: `${API_BASE}/assignments`, body: { orderId, driverId, scheduleTime } },
-        { url: `${API_BASE}/orders/${orderId}/assign`, body: { driverId, scheduleTime } },
-      ];
-      let success = false;
-      let lastErr: any = null;
-      for (const c of candidates) {
+      
+      // Use the correct endpoint format
+      const res = await fetch(`${API_BASE}/assignments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          order_id: orderId,
+          driver_id: driverId,
+          schedule_time: scheduleTime
+        })
+      });
+
+      if (!res.ok) {
+        let errorMessage = `Failed to assign driver (${res.status})`;
         try {
-          const res = await fetch(c.url, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(c.body)
-          });
-          if (!res.ok) {
-            // attempt to parse error
-            let txt = `Assign failed (${res.status})`;
-            try { const j = await res.json(); txt = j?.error ?? j?.message ?? txt; } catch { try { const t = await res.text(); if (t) txt = t; } catch {} }
-            throw new Error(txt);
+          const errorData = await res.json();
+          errorMessage = errorData?.error || errorData?.message || errorMessage;
+          
+          // If there are validation errors, show them
+          if (errorData?.errors && Array.isArray(errorData.errors)) {
+            const errorList = errorData.errors.map((err: any) => err.message).join(', ');
+            errorMessage = `Validation error: ${errorList}`;
           }
-          success = true;
-          break;
-        } catch (err) {
-          lastErr = err;
+        } catch {
+          try {
+            const text = await res.text();
+            if (text) errorMessage = text;
+          } catch {}
         }
+        throw new Error(errorMessage);
       }
-      if (!success) throw lastErr ?? new Error('Assign failed');
-      // success -> go to assigned drivers page
+
+      const result = await res.json();
+      console.log('Assignment created successfully:', result);
+      
+      // Success - show message and redirect
+      alert('Driver assigned successfully! Order status updated.');
       router.push('/dashboard/orderdelivery/assigneddrivers');
     } catch (e: any) {
-      alert(e.message ?? 'Failed to assign');
+      console.error('Assignment error:', e);
+      alert(e.message ?? 'Failed to assign driver');
     }
   }
 
