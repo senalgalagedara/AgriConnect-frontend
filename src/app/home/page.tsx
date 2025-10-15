@@ -192,12 +192,7 @@ export default function HomePage() {
             <h1 className="hero-title">Don’t miss our daily amazing deals.</h1>
             <p className="hero-subtitle">Save up to 60% off on your first order</p>
             <div style={{display:'flex', gap:12, marginTop:16}}>
-              <button
-                onClick={() => openFeedback({ title: 'Share your feedback', subtitle: 'Help us improve your shopping experience', showRatingSummary: true, autoCloseDelay: null })}
-                style={{background:'#9333ea', color:'#fff', fontWeight:600, padding:'12px 28px', borderRadius:12, border:'none', cursor:'pointer', boxShadow:'0 4px 12px rgba(147,51,234,0.3)'}}
-              >
-                Give Feedback
-              </button>
+              
             </div>
           </div>
           <div className="hero-right">
@@ -206,7 +201,14 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* CATEGORIES */}
+      {/* CATEGORIES
+      <button
+                onClick={() => openFeedback({ title: 'Share your feedback', subtitle: 'Help us improve your shopping experience', showRatingSummary: true, autoCloseDelay: null })}
+                style={{background:'#9333ea', color:'#fff', fontWeight:600, padding:'12px 28px', borderRadius:12, border:'none', cursor:'pointer', boxShadow:'0 4px 12px rgba(147,51,234,0.3)'}}
+              >
+                Give Feedback
+              </button>
+      */}
       <section className="categories-section">
         <div className="categories-container">
           <h2 className="categories-title">Shop by Category</h2>
