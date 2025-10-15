@@ -10,8 +10,8 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:5000/api'
 interface CartItem {
   id: string;
   name: string;
-  price: number | string; // normalize on load
-  qty: number | string;   // normalize on load
+  price: number | string; 
+  qty: number | string;   
   unit?: string;
 }
 
@@ -19,7 +19,7 @@ interface Transaction {
   id: string;
   customerName: string;
   email: string;
-  total: number | string; // normalize on load
+  total: number | string; 
   paymentMethod: 'COD' | 'CARD';
   createdAt: string;
   items: CartItem[];
@@ -38,7 +38,6 @@ export default function InvoicePage() {
       if (savedInvoice) {
         const raw = JSON.parse(savedInvoice) as Transaction;
 
-        // Normalize any numeric fields that might be strings
         const normalized: Transaction = {
           ...raw,
           total: num(raw.total),
@@ -49,13 +48,11 @@ export default function InvoicePage() {
           })),
         };
 
-        // try to fetch authoritative order from backend if we have an integer id
         (async () => {
           try {
             const possibleId = (raw as any).id;
             const numericId = Number(possibleId);
             if (Number.isFinite(numericId) && numericId > 0) {
-              // backend route: GET /orders/:orderId
               const response = await fetch(`${API_BASE}/orders/${numericId}`);
               if (response.ok) {
                 const fresh = await response.json();

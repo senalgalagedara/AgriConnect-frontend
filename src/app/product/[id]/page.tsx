@@ -171,7 +171,6 @@ export default function ProductDetailPage() {
     setAddingToCart(true);
 
     try {
-      // Add to backend cart
       const response = await fetch(`${API_BASE_URL}/cart/${USER_ID}/items`, {
         method: 'POST',
         headers: {
@@ -182,33 +181,52 @@ export default function ProductDetailPage() {
           qty: quantity,
         }),
       });
+      const result = await response.json().catch(() => null);
+      console.debug('Add to cart response', response.status, result);
 
       if (response.ok) {
-        // Update local cart
-        const existingItemIndex = cartItems.findIndex(item => item.id === product.id);
-        let updatedCart: CartItem[];
+        // If backend returned the full cart, use it to update UI/localStorage
+        const returnedItems = result?.data?.items ?? result?.items ?? null;
 
-        if (existingItemIndex >= 0) {
-          updatedCart = cartItems.map((item, index) =>
-            index === existingItemIndex ? { ...item, qty: item.qty + quantity } : item
-          );
+        if (Array.isArray(returnedItems)) {
+          const mapped = returnedItems.map((it: any) => ({
+            id: Number(it.product_id ?? it.productId ?? it.id),
+            name: it.name ?? it.product_name ?? `Item ${it.product_id ?? it.id}`,
+            price: toNum(it.price ?? it.final_price ?? 0),
+            qty: Number(it.qty ?? it.quantity ?? 0),
+            unit: it.unit ?? product.unit,
+          }));
+          setCartItems(mapped);
+          saveCartToLocalStorage(mapped);
         } else {
-          const newItem: CartItem = {
-            id: product.id,
-            name: product.product_name,
-            price: toNum(product.final_price, 0),
-            qty: quantity,
-            unit: product.unit,
-          };
-          updatedCart = [...cartItems, newItem];
-        }
+          // Fallback: update local cart optimistically
+          const existingItemIndex = cartItems.findIndex(item => item.id === product.id);
+          let updatedCart: CartItem[];
 
-        setCartItems(updatedCart);
-        saveCartToLocalStorage(updatedCart);
+          if (existingItemIndex >= 0) {
+            updatedCart = cartItems.map((item, index) =>
+              index === existingItemIndex ? { ...item, qty: item.qty + quantity } : item
+            );
+          } else {
+            const newItem: CartItem = {
+              id: product.id,
+              name: product.product_name,
+              price: toNum(product.final_price, 0),
+              qty: quantity,
+              unit: product.unit,
+            };
+            updatedCart = [...cartItems, newItem];
+          }
+
+          setCartItems(updatedCart);
+          saveCartToLocalStorage(updatedCart);
+        }
 
         router.push('/cart');
       } else {
-        console.error('Failed to add item to cart');
+        const message = result?.message || result?.error || `Failed to add item (status ${response.status})`;
+        console.error('Failed to add item to cart:', message, result);
+        alert(message);
       }
     } catch (error) {
       console.error('Error adding to cart:', error);
