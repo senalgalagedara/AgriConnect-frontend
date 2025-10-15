@@ -20,12 +20,17 @@ export default function Home() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
 
   const normalizeUser = (raw: any): User => {
+    // NOTE: backend now returns numeric id and separate name fields (first_name/last_name)
+    const id = typeof raw.id === 'number' ? raw.id : parseInt(raw.id, 10);
+    const firstName = raw.first_name || raw.firstName || (raw.name ? String(raw.name).split(' ')[0] : '');
+    const lastName = raw.last_name || raw.lastName || (raw.name ? String(raw.name).split(' ').slice(1).join(' ') : '');
     return {
-      id: String(raw.id ?? ''),
-      name: String(raw.name ?? ''),
+      id: Number.isNaN(id) ? 0 : id,
       email: String(raw.email ?? ''),
-      phone: String(raw.phone ?? ''),
-      role: raw.role as User['role'],
+      firstName,
+      lastName,
+      contactNumber: String(raw.phone ?? raw.contact_number ?? raw.contactNumber ?? ''),
+      role: (raw.role ?? 'consumer') as User['role'],
       status: (raw.status ?? 'active') as User['status'],
       createdAt: raw.createdAt instanceof Date ? raw.createdAt : new Date(raw.created_at ?? raw.createdAt ?? Date.now()),
       address: String(raw.address ?? ''),
@@ -81,7 +86,7 @@ export default function Home() {
     setActiveTab('edit-user');
   };
 
-  const handleUpdateUser = async (userId: string, updates: CreateUserData) => {
+  const handleUpdateUser = async (userId: number, updates: CreateUserData) => {
     try {
       setError(null);
       const res = await fetch(`${API_BASE_URL}/users/${userId}`, {
@@ -103,7 +108,7 @@ export default function Home() {
     }
   };
 
-  const handleDeleteUser = async (userId: string) => {
+  const handleDeleteUser = async (userId: number) => {
     try {
       setError(null);
       const res = await fetch(`${API_BASE_URL}/users/${userId}`, { method: 'DELETE' });
@@ -136,9 +141,10 @@ export default function Home() {
             onSubmit={(data) => editingUser && handleUpdateUser(editingUser.id, data)}
             onCancel={() => { setEditingUser(null); setActiveTab('users'); }}
             initialValues={editingUser ? {
-              name: editingUser.name,
+              firstName: editingUser.firstName,
+              lastName: editingUser.lastName,
               email: editingUser.email,
-              phone: editingUser.phone,
+              contactNumber: editingUser.contactNumber,
               role: editingUser.role,
               address: editingUser.address,
             } : undefined}

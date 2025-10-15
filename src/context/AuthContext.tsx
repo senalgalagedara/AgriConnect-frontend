@@ -3,7 +3,8 @@ import React, { createContext, useContext, useEffect, useState, ReactNode, useCa
 import { apiRequest, ApiError } from '@/lib/api';
 
 export interface AuthUser {
-  id: string | number;
+  // Auth user id now strictly number
+  id: number;
   email: string;
   role?: string;
   firstName?: string;
@@ -30,11 +31,16 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const hasLoggedInitial401 = useRef(false);
 
   function normalizeUser(raw: any | null): AuthUser | null {
     if (!raw) return null;
+    const numericId = typeof raw.id === 'number' ? raw.id : parseInt(raw.id, 10);
+    if (Number.isNaN(numericId)) {
+      console.warn('normalizeUser: received non-numeric id, defaulting to 0', raw.id);
+    }
     const u: AuthUser = {
-      id: raw.id,
+      id: Number.isNaN(numericId) ? 0 : numericId,
       email: raw.email,
       role: raw.role,
       firstName: raw.first_name || raw.firstName,
@@ -54,7 +60,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(normalizeUser(data.user));
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
-        setUser(null); // session expired
+        setUser(null); // session expired / not logged in
+        if (!hasLoggedInitial401.current && process.env.NODE_ENV !== 'production') {
+          console.info('[auth] No active session (401 from /auth/session). This is normal if user not logged in.');
+          hasLoggedInitial401.current = true;
+        }
       } else {
         // network or server error -> keep existing user state but could log
         console.warn('Session fetch failed', err);

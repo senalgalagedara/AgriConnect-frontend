@@ -139,8 +139,13 @@ export default function SignupPage() {
         password: formData.password
       };
 
+      if (process.env.NODE_ENV !== 'production') {
+        const { password, ...preview } = payload;
+        console.debug('[signup] submitting payload', preview);
+      }
+
       // Call backend signup
-      const data = await apiRequest<{ user: { id: string; email: string; role: string; name?: string } }>(`/auth/signup`, {
+      const data = await apiRequest<{ user: { id: number; email: string; role: string; first_name?: string; last_name?: string } }>(`/auth/signup`, {
         method: 'POST',
         body: payload,
       });

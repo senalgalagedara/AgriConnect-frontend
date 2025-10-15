@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useFeedback } from "@/components/FeedbackContext";
 import Link from "next/link";
 import Image from "next/image";
 import { ShoppingCart, Star, ChevronDown, ChevronUp, Filter } from "lucide-react";
@@ -35,6 +36,7 @@ type SortKey = "price" | "name" | "date";
 type SortDir = "asc" | "desc";
 
 export default function HomePage() {
+  const { open: openFeedback } = useFeedback();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -189,6 +191,14 @@ export default function HomePage() {
           <div className="hero-left">
             <h1 className="hero-title">Don’t miss our daily amazing deals.</h1>
             <p className="hero-subtitle">Save up to 60% off on your first order</p>
+            <div style={{display:'flex', gap:12, marginTop:16}}>
+              <button
+                onClick={() => openFeedback({ title: 'Share your feedback', subtitle: 'Help us improve your shopping experience', showRatingSummary: true, autoCloseDelay: null })}
+                style={{background:'#9333ea', color:'#fff', fontWeight:600, padding:'12px 28px', borderRadius:12, border:'none', cursor:'pointer', boxShadow:'0 4px 12px rgba(147,51,234,0.3)'}}
+              >
+                Give Feedback
+              </button>
+            </div>
           </div>
           <div className="hero-right">
             <img src="/image2.png" alt="Fresh produce" className="hero-img" />

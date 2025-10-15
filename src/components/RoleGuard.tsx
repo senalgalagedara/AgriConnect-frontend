@@ -17,14 +17,14 @@ export function RoleGuard({ allow, children, fallback }: RoleGuardProps) {
   const { user, loading, hasRole } = useAuth();
 
   if (loading) {
-    return <div className="p-4 text-sm text-gray-500">Checking permissions...</div>;
+    return <div className="p-4 text-sm text-blue-500">Checking permissions...</div>;
   }
 
   if (!user) {
     return fallback || (
       <div className="p-6 space-y-4 border border-gray-200 rounded-md bg-white">
         <h2 className="text-lg font-semibold">Authentication Required</h2>
-        <p className="text-sm text-gray-600">You must sign in to access this section.</p>
+        <p className="text-sm text-blue-600">You must sign in to access this section.</p>
         <Link href="/auth/login" className="inline-block bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium">
           Sign in
         </Link>

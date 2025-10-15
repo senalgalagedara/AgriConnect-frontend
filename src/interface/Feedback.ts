@@ -1,9 +1,10 @@
-export type FeedbackType = 'user-experience' | 'performance' | 'product-service' | 'transactional';
+export type FeedbackType = 'user-experience' | 'performance' | 'product_service' | 'transactional';
 
 export interface FeedbackData {
   rating: number;
-  comment: string;
-  feedbackType: FeedbackType;
+  comment: string;              // Frontend canonical text body
+  feedbackType: FeedbackType;   // Frontend canonical type
+  message?: string;             // Mirror of comment when sending to backend
   createdAt?: string;
   userId?: string;
   // Allow extension (e.g., orderId, userId)

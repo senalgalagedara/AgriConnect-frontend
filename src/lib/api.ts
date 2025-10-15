@@ -5,6 +5,7 @@ export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
 const _rawBase = process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 export const API_BASE_URL = _rawBase.replace(/\/$/, '');
 const API_PATH_PREFIX = (process.env.NEXT_PUBLIC_API_PATH_PREFIX || '').replace(/\/$/, '').replace(/^\/+/, '');
+const USE_API_REWRITE = process.env.NEXT_PUBLIC_USE_API_REWRITE === 'true';
 
 export interface ApiRequestOptions {
   method?: HttpMethod;
@@ -51,7 +52,8 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     cleaned = `/${API_PATH_PREFIX}${cleaned}`.replace(/\/+/g, '/');
   }
   const qs = buildQuery(options.query);
-  const url = `${API_BASE_URL}${cleaned}${qs}`;
+  // If using Next.js rewrite proxy, keep request same-origin so cookies are simpler
+  const url = USE_API_REWRITE ? `${cleaned}${qs}` : `${API_BASE_URL}${cleaned}${qs}`;
 
   const headers: Record<string, string> = options.headers ? { ...options.headers } : {};
   if (!options.rawBody) {
@@ -84,7 +86,7 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     if (response.status === 404 && API_PATH_PREFIX) {
       console.warn('[apiRequest] 404 with prefix, retrying without prefix', { url });
       try {
-        const retryUrl = `${API_BASE_URL}${path.startsWith('/') ? path : '/' + path}${qs}`;
+  const retryUrl = USE_API_REWRITE ? `${path.startsWith('/') ? path : '/' + path}${qs}` : `${API_BASE_URL}${path.startsWith('/') ? path : '/' + path}${qs}`;
         const retryResp = await fetch(retryUrl, {
           method: options.method || 'GET',
           headers,
@@ -112,7 +114,14 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     if (response.status === 404) {
       console.warn('[apiRequest] 404 Not Found', { url, method: options.method || 'GET' });
     } else if (response.status >= 500) {
-      console.error('[apiRequest] Server error', { status: response.status, url });
+      console.error('[apiRequest] Server error', {
+        status: response.status,
+        url,
+        method: options.method || 'GET',
+        prefix: API_PATH_PREFIX || '(none)',
+        bodySnippet: typeof body === 'string' ? body.slice(0, 400) : undefined,
+        responseFragment: typeof parsed === 'string' ? parsed.slice(0, 400) : parsed,
+      });
     }
     let message: string | undefined;
     if (parsed && typeof parsed === 'object') {
@@ -127,6 +136,15 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
       } else {
         message = `Request failed (${response.status})`;
       }
+    }
+    if (response.status >= 400 && response.status < 500 && process.env.NODE_ENV !== 'production') {
+      console.warn('[apiRequest] 4xx diagnostics', {
+        status: response.status,
+        url,
+        method: options.method || 'GET',
+        responseKeys: parsed && typeof parsed === 'object' ? Object.keys(parsed).slice(0,12) : null,
+        responsePreview: typeof parsed === 'string' ? parsed.slice(0,200) : parsed?.message || parsed?.error || null
+      });
     }
     throw new ApiError(message, response.status, parsed);
   }

@@ -12,11 +12,13 @@ interface UserFormProps {
 
 const UserForm = ({ onSubmit, onCancel, initialValues, submitLabel }: UserFormProps) => {
   const [formData, setFormData] = useState<CreateUserData>({
-    name: '',
+    firstName: '',
+    lastName: '',
     email: '',
-    phone: '',
+    contactNumber: '',
     role: 'consumer',
     address: '',
+    password: '', // not exposed in this admin form but required by type; keep empty
   });
 
   // initialize with provided values for edit mode
@@ -35,14 +37,15 @@ const UserForm = ({ onSubmit, onCancel, initialValues, submitLabel }: UserFormPr
   const validateForm = (): boolean => {
     const newErrors: Partial<CreateUserData> = {};
     
-    if (!formData.name.trim()) newErrors.name = 'Name is required';
+    if (!formData.firstName.trim()) (newErrors as any).firstName = 'First name is required';
+    if (!formData.lastName.trim()) (newErrors as any).lastName = 'Last name is required';
     if (!formData.email.trim()) {
       newErrors.email = 'Email is required';
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = 'Email is invalid';
     }
-    if (!formData.phone.trim()) newErrors.phone = 'Phone is required';
-    if (!formData.address.trim()) newErrors.address = 'Address is required';
+    if (!formData.contactNumber?.trim()) (newErrors as any).contactNumber = 'Contact number is required';
+    if (!formData.address?.trim()) newErrors.address = 'Address is required';
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -89,9 +92,14 @@ const UserForm = ({ onSubmit, onCancel, initialValues, submitLabel }: UserFormPr
       <form onSubmit={handleSubmit} style={{display: 'grid', gap: 16}}>
         <div style={formGridStyle}>
           <div>
-            <label style={labelStyle}><User size={14} style={{marginRight: 8}} /> Full Name</label>
-            <input type="text" value={formData.name} onChange={(e) => handleInputChange('name', e.target.value)} style={inputStyle(Boolean(errors.name))} placeholder="Enter full name" />
-            {errors.name && <p style={{marginTop: 6, fontSize: 13, color: '#dc2626'}}>{errors.name}</p>}
+            <label style={labelStyle}><User size={14} style={{marginRight: 8}} /> First Name</label>
+            <input type="text" value={formData.firstName} onChange={(e) => handleInputChange('firstName', e.target.value)} style={inputStyle(Boolean((errors as any).firstName))} placeholder="Enter first name" />
+            {(errors as any).firstName && <p style={{marginTop: 6, fontSize: 13, color: '#dc2626'}}>{(errors as any).firstName}</p>}
+          </div>
+          <div>
+            <label style={labelStyle}><User size={14} style={{marginRight: 8}} /> Last Name</label>
+            <input type="text" value={formData.lastName} onChange={(e) => handleInputChange('lastName', e.target.value)} style={inputStyle(Boolean((errors as any).lastName))} placeholder="Enter last name" />
+            {(errors as any).lastName && <p style={{marginTop: 6, fontSize: 13, color: '#dc2626'}}>{(errors as any).lastName}</p>}
           </div>
 
           <div>
@@ -101,9 +109,9 @@ const UserForm = ({ onSubmit, onCancel, initialValues, submitLabel }: UserFormPr
           </div>
 
           <div>
-            <label style={labelStyle}><Phone size={14} style={{marginRight: 8}} /> Phone Number</label>
-            <input type="tel" value={formData.phone} onChange={(e) => handleInputChange('phone', e.target.value)} style={inputStyle(Boolean(errors.phone))} placeholder="Enter phone number" />
-            {errors.phone && <p style={{marginTop: 6, fontSize: 13, color: '#dc2626'}}>{errors.phone}</p>}
+            <label style={labelStyle}><Phone size={14} style={{marginRight: 8}} /> Contact Number</label>
+            <input type="tel" value={formData.contactNumber} onChange={(e) => handleInputChange('contactNumber', e.target.value)} style={inputStyle(Boolean((errors as any).contactNumber))} placeholder="Enter contact number" />
+            {(errors as any).contactNumber && <p style={{marginTop: 6, fontSize: 13, color: '#dc2626'}}>{(errors as any).contactNumber}</p>}
           </div>
 
           <div>
