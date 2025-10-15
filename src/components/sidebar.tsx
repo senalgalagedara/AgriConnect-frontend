@@ -33,40 +33,17 @@ export default function Sidebar() {
           Inventory Management
         </Link>
 
-        <button
-          type="button"
-          className={`nav-link group-toggle ${pathname?.startsWith("/dashboard/orderdelivery") ? "active" : ""}`}
-          onClick={() => setOrderOpen(v => !v)}
-          aria-expanded={orderOpen}
-          aria-controls="order-subnav"
-        >
-          <span>Order Delivery</span>
-          <span className={`caret ${orderOpen ? "open" : ""}`} aria-hidden>▾</span>
-        </button>
-
-        {orderOpen && (
-          <div id="order-subnav" className="subnav">
-            <Link
-              href="/dashboard/orderdelivery/driverlist"
-              className={`sub-link ${isActive("/dashboard/orderdelivery/driverlist") ? "active" : ""}`}
-            >
-              Driver List
-            </Link>
-            <Link
-              href="/dashboard/orderdelivery/orderlist"
-              className={`sub-link ${isActive("/dashboard/orderdelivery/orderlist") ? "active" : ""}`}
-            >
-              Order List
-            </Link>
-            <Link
-              href="/dashboard/orderdelivery/assigneddrivers"
-              className={`sub-link ${isActive("/dashboard/orderdelivery/assigneddrivers") ? "active" : ""}`}
-            >
-              Assign Drivers
-            </Link>
-          </div>
-        )}
-
+        <Link href="/dashboard/orderdelivery" className={`nav-link ${isActive("/dashboard/orderdelivery") ? "active" : ""}`}>
+          Order & Delivery Management
+        </Link>
+        <div id="order-subnav" className="subnav">
+          <Link
+            href="/dashboard/orderdelivery/assigneddrivers"
+            className={`sub-link ${isActive("/dashboard/orderdelivery/assigneddrivers") ? "active" : ""}`}
+          >
+            Assigned Drivers
+          </Link>
+        </div>
         <Link href="/dashboard/payment" className={`nav-link ${isActive("/dashboard/payment") ? "active" : ""}`}>
           Payment Management
         </Link>

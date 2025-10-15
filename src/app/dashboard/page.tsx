@@ -32,18 +32,20 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'inventory'>('overview');
-
-  const [dashboardStats] = useState<DashboardStats>({
-    totalUsers: 1250,
-    totalOrders: 890,
-    totalRevenue: 125000,
-    pendingDeliveries: 45,
-    totalFeedback: 234,
-    totalPayments: 780,
+  const [dashboardStats, setDashboardStats] = useState<DashboardStats>({
+    totalUsers: 0,
+    totalOrders: 0,
+    totalRevenue: 0,
+    pendingDeliveries: 0,
+    totalFeedback: 0,
+    totalPayments: 0,
   });
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [statsError, setStatsError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchProvinces();
+    fetchDashboardStats();
   }, []);
 
   const fetchProvinces = async () => {
@@ -66,6 +68,59 @@ export default function AdminDashboard() {
       setError("Failed to fetch provinces");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchDashboardStats = async () => {
+    try {
+      setStatsLoading(true);
+      setStatsError(null);
+
+      // Assumption: backend exposes a dashboard stats endpoint at /dashboard/stats
+      // Response shape expected: { success: boolean, data: { totalUsers, totalOrders, totalRevenue, pendingDeliveries, totalFeedback, totalPayments } }
+      const res = await fetch(`${API_BASE_URL}/dashboard/stats`).catch(() => null);
+
+      if (!res || !res.ok) {
+        // Gracefully handle backend unavailability - use default values
+        setDashboardStats({
+          totalUsers: 0,
+          totalOrders: 0,
+          totalRevenue: 0,
+          pendingDeliveries: 0,
+          totalFeedback: 0,
+          totalPayments: 0,
+        });
+        return;
+      }
+
+      const json = await res.json();
+
+      if (json && json.success && json.data) {
+        // coerce numeric fields to numbers
+        const d = json.data;
+        setDashboardStats({
+          totalUsers: Number(d.totalUsers) || 0,
+          totalOrders: Number(d.totalOrders) || 0,
+          totalRevenue: Number(d.totalRevenue) || 0,
+          pendingDeliveries: Number(d.pendingDeliveries) || 0,
+          totalFeedback: Number(d.totalFeedback) || 0,
+          totalPayments: Number(d.totalPayments) || 0,
+        });
+      } else {
+        setStatsError(json?.message || 'Failed to fetch dashboard stats');
+      }
+    } catch (err) {
+      // Suppress console error for backend unavailability - fail gracefully
+      setDashboardStats({
+        totalUsers: 0,
+        totalOrders: 0,
+        totalRevenue: 0,
+        pendingDeliveries: 0,
+        totalFeedback: 0,
+        totalPayments: 0,
+      });
+    } finally {
+      setStatsLoading(false);
     }
   };
 

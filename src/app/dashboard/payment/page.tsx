@@ -21,7 +21,7 @@ type SiteStats = {
 };
 
 /* ============ Backend config (adjust if needed) ============ */
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:5000/api";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5000/api";
 
 /** Expects: array of orders OR { data: [...] } */
 // Use admin orders endpoint which returns order list with customer name, email, phone, total and created_at
@@ -30,8 +30,13 @@ const LIST_ORDERS_URL = `${API_BASE}/admin/orders`;
 /** Optional stats endpoint. Fallback computes from orders if missing. */
 const STATS_URL = `${API_BASE}/stats`; // alternative: `${API_BASE}/orders/stats`
 
-/** DELETE /orders/:id */
-const DELETE_ORDER_URL = (orderId: string | number) => `${API_BASE}/orders/${orderId}`;
+/**
+ * Delete endpoints: try admin hard-delete first, then fallback to user cancel.
+ * - Admin: DELETE /admin/orders/:id -> 204 No Content
+ * - Fallback: DELETE /orders/:id -> cancels the order (status = 'cancelled')
+ */
+const ADMIN_DELETE_ORDER_URL = (orderId: string | number) => `${API_BASE}/admin/orders/${orderId}`;
+const CANCEL_ORDER_URL = (orderId: string | number) => `${API_BASE}/orders/${orderId}`;
 /* =========================================================== */
 
 export default function PaymentManagerPage() {
@@ -153,11 +158,23 @@ export default function PaymentManagerPage() {
   }, [orders, query]);
 
   const onDelete = async (id: string) => {
-    if (!confirm(`Delete order ${id}?`)) return;
+    if (!confirm(`Permanently delete order ${id}? This cannot be undone.`)) return;
     try {
       setDeletingId(id);
-      const r = await fetch(DELETE_ORDER_URL(id), { method: "DELETE" });
-      if (!r.ok) throw new Error(await r.text());
+      // Prefer hard delete via admin; fallback to cancel
+      const urls = [ADMIN_DELETE_ORDER_URL(id), CANCEL_ORDER_URL(id)];
+      let success = false;
+      let lastErr: any = null;
+      for (const u of urls) {
+        try {
+          const r = await fetch(u, { method: "DELETE" });
+          if (r.ok || r.status === 204) { success = true; break; }
+          let txt = `Delete failed (${r.status})`;
+          try { const j = await r.json(); txt = j?.error ?? j?.message ?? txt; } catch { try { const t = await r.text(); if (t) txt = t; } catch {} }
+          throw new Error(txt);
+        } catch (err) { lastErr = err; }
+      }
+      if (!success) throw lastErr ?? new Error('Delete failed');
       setOrders((prev) => prev.filter((o) => o.id !== id));
     } catch (e: any) {
       alert(`Could not delete: ${e?.message || "Unknown error"}`);

@@ -65,6 +65,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.info('[auth] No active session (401 from /auth/session). This is normal if user not logged in.');
           hasLoggedInitial401.current = true;
         }
+      } else if (err instanceof ApiError && err.status >= 500) {
+        // Backend server error or not running - silently set user to null
+        setUser(null);
+        if (!hasLoggedInitial401.current && process.env.NODE_ENV !== 'production') {
+          console.info('[auth] Auth backend not available. User will need to login when backend is ready.');
+          hasLoggedInitial401.current = true;
+        }
       } else {
         // network or server error -> keep existing user state but could log
         console.warn('Session fetch failed', err);

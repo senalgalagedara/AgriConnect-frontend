@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { User, Mail, Phone, MapPin, UserCheck } from 'lucide-react';
+import { User, Mail, Phone, MapPin, UserCheck, Lock } from 'lucide-react';
 import { CreateUserData, UserRole  } from '@/interface/User';
 
 
@@ -46,6 +46,13 @@ const UserForm = ({ onSubmit, onCancel, initialValues, submitLabel }: UserFormPr
     }
     if (!formData.contactNumber?.trim()) (newErrors as any).contactNumber = 'Contact number is required';
     if (!formData.address?.trim()) newErrors.address = 'Address is required';
+    
+    // Password validation - only required when adding new user (not editing)
+    if (!initialValues && !formData.password?.trim()) {
+      newErrors.password = 'Password is required';
+    } else if (formData.password && formData.password.length < 6) {
+      newErrors.password = 'Password must be at least 6 characters';
+    }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -121,6 +128,18 @@ const UserForm = ({ onSubmit, onCancel, initialValues, submitLabel }: UserFormPr
                 <option key={option.value} value={option.value}>{option.label}</option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <label style={labelStyle}><Lock size={14} style={{marginRight: 8}} /> Password</label>
+            <input 
+              type="password" 
+              value={formData.password} 
+              onChange={(e) => handleInputChange('password', e.target.value)} 
+              style={inputStyle(Boolean(errors.password))} 
+              placeholder={initialValues ? "Leave blank to keep current password" : "Enter password"} 
+            />
+            {errors.password && <p style={{marginTop: 6, fontSize: 13, color: '#dc2626'}}>{errors.password}</p>}
           </div>
         </div>
 
