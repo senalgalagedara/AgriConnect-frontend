@@ -78,10 +78,19 @@ export default function AdminDashboard() {
 
       // Assumption: backend exposes a dashboard stats endpoint at /dashboard/stats
       // Response shape expected: { success: boolean, data: { totalUsers, totalOrders, totalRevenue, pendingDeliveries, totalFeedback, totalPayments } }
-      const res = await fetch(`${API_BASE_URL}/dashboard/stats`);
+      const res = await fetch(`${API_BASE_URL}/dashboard/stats`).catch(() => null);
 
-      if (!res.ok) {
-        throw new Error(`Failed to fetch dashboard stats (${res.status})`);
+      if (!res || !res.ok) {
+        // Gracefully handle backend unavailability - use default values
+        setDashboardStats({
+          totalUsers: 0,
+          totalOrders: 0,
+          totalRevenue: 0,
+          pendingDeliveries: 0,
+          totalFeedback: 0,
+          totalPayments: 0,
+        });
+        return;
       }
 
       const json = await res.json();
@@ -101,8 +110,15 @@ export default function AdminDashboard() {
         setStatsError(json?.message || 'Failed to fetch dashboard stats');
       }
     } catch (err) {
-      console.error('Error fetching dashboard stats:', err);
-      setStatsError('Failed to fetch dashboard stats');
+      // Suppress console error for backend unavailability - fail gracefully
+      setDashboardStats({
+        totalUsers: 0,
+        totalOrders: 0,
+        totalRevenue: 0,
+        pendingDeliveries: 0,
+        totalFeedback: 0,
+        totalPayments: 0,
+      });
     } finally {
       setStatsLoading(false);
     }

@@ -32,10 +32,12 @@ const UserSidebar = ({ activeTab, setActiveTab }: SidebarProps) => {
             padding: '12px 24px',
             textAlign: 'left',
             background: isActive ? '#eff6ff' : 'transparent',
-            borderRight: isActive ? '4px solid #3b82f6' : undefined,
+            borderTop: 'none',
+            borderBottom: 'none',
+            borderLeft: 'none',
+            borderRight: isActive ? '4px solid #3b82f6' : 'none',
             color: isActive ? '#1e40af' : '#374151',
             cursor: 'pointer',
-            border: 'none',
             outline: 'none',
           };
 
