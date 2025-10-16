@@ -70,7 +70,8 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     headers,
     body,
     cache: 'no-store',
-    credentials: 'include', // send cookies for session auth
+    // Do not send cookies by default. Sessions/cookies were removed; callers can opt-in via options.headers or by setting USE_API_REWRITE.
+    credentials: USE_API_REWRITE ? 'same-origin' : 'omit',
     signal: options.signal,
   });
 
@@ -114,7 +115,7 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     if (response.status === 404) {
       console.warn('[apiRequest] 404 Not Found', { url, method: options.method || 'GET' });
     } else if (response.status >= 500) {
-      // Only log server errors if not auth session check (to avoid spam when backend is down)
+      // Only log server errors for non-auth endpoints (avoid spam from auth/session-related probes)
       if (!url.includes('/auth/session')) {
         console.error('[apiRequest] Server error', {
           status: response.status,

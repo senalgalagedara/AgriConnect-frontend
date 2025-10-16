@@ -89,26 +89,6 @@ export default function AssignDriverPage() {
         })
       });
 
-      if (!res.ok) {
-        let errorMessage = `Failed to assign driver (${res.status})`;
-        try {
-          const errorData = await res.json();
-          errorMessage = errorData?.error || errorData?.message || errorMessage;
-          
-          // If there are validation errors, show them
-          if (errorData?.errors && Array.isArray(errorData.errors)) {
-            const errorList = errorData.errors.map((err: any) => err.message).join(', ');
-            errorMessage = `Validation error: ${errorList}`;
-          }
-        } catch {
-          try {
-            const text = await res.text();
-            if (text) errorMessage = text;
-          } catch {}
-        }
-        throw new Error(errorMessage);
-      }
-
       const result = await res.json();
       console.log('Assignment created successfully:', result);
       

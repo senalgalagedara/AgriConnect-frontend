@@ -6,7 +6,7 @@ import Link from 'next/link';
 export function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   if (loading) {
-    return <div className="p-6 text-sm text-gray-500">Checking session...</div>;
+    return <div className="p-6 text-sm text-gray-500">Checking authentication...</div>;
   }
   if (!user) {
     return (

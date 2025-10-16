@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useRef } from 'react';
+import NotificationModal from './NotificationModal';
 
 interface Notification {
   id: number;
@@ -43,6 +44,7 @@ export default function NotificationDropdown({ className = '' }: NotificationDro
   const [isOpen, setIsOpen] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [showCenterModal, setShowCenterModal] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown when clicking outside
@@ -159,6 +161,11 @@ export default function NotificationDropdown({ className = '' }: NotificationDro
     }
   };
 
+  const openCenterModal = () => {
+    setShowCenterModal(true);
+    setIsOpen(false);
+  };
+
   const getNotificationIcon = (type: string) => {
     switch (type) {
       case 'expired':
@@ -254,11 +261,18 @@ export default function NotificationDropdown({ className = '' }: NotificationDro
           <div className="notification-panel">
             <div className="notification-header">
               <h3>Notifications</h3>
-              {notifications.length > 0 && (
-                <button className="mark-all-read" onClick={handleMarkAllAsRead}>
-                  Mark all as read
+              <div className="header-actions">
+                <button className="view-all-btn" onClick={openCenterModal} title="View all notifications">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3A1.5 1.5 0 0 1 7 2.5v3A1.5 1.5 0 0 1 5.5 7h-3A1.5 1.5 0 0 1 1 5.5v-3zM2.5 2a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3zm6.5.5A1.5 1.5 0 0 1 10.5 1h3A1.5 1.5 0 0 1 15 2.5v3A1.5 1.5 0 0 1 13.5 7h-3A1.5 1.5 0 0 1 9 5.5v-3zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3zM1 10.5A1.5 1.5 0 0 1 2.5 9h3A1.5 1.5 0 0 1 7 10.5v3A1.5 1.5 0 0 1 5.5 15h-3A1.5 1.5 0 0 1 1 13.5v-3zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3zm6.5.5A1.5 1.5 0 0 1 10.5 9h3a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-3A1.5 1.5 0 0 1 9 13.5v-3zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3z"/>
+                  </svg>
                 </button>
-              )}
+                {notifications.length > 0 && (
+                  <button className="mark-all-read" onClick={handleMarkAllAsRead}>
+                    Mark all as read
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="notification-list">
@@ -301,7 +315,14 @@ export default function NotificationDropdown({ className = '' }: NotificationDro
         )}
       </div>
 
-      {/* Notification Modal */}
+      {/* Center Modal */}
+      <NotificationModal 
+        isOpen={showCenterModal}
+        onClose={() => setShowCenterModal(false)}
+        onRefresh={fetchUnreadCount}
+      />
+
+      {/* Notification Detail Modal */}
       {showModal && selectedNotification && (
         <div className="notification-modal-overlay" onClick={closeModal}>
           <div className="notification-modal" onClick={(e) => e.stopPropagation()}>
@@ -482,6 +503,30 @@ export default function NotificationDropdown({ className = '' }: NotificationDro
           font-size: 18px;
           font-weight: 600;
           color: #111827;
+        }
+
+        .header-actions {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .view-all-btn {
+          background: none;
+          border: none;
+          color: #6b7280;
+          cursor: pointer;
+          padding: 6px;
+          border-radius: 4px;
+          transition: all 0.2s;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .view-all-btn:hover {
+          background: #f3f4f6;
+          color: #15803d;
         }
 
         .mark-all-read {

@@ -1,0 +1,47 @@
+# Docker Ignore File
+# Prevents unnecessary files from being copied into Docker image
+
+# Dependencies
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Next.js
+.next
+out
+build
+
+# Environment files
+.env*.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Testing
+coverage
+.nyc_output
+
+# Misc
+.DS_Store
+*.pem
+*.log
+
+# Debug
+.vscode
+.idea
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation (optional - remove if you want docs in image)
+*.md
+README.md
+CHANGELOG.md
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose*.yml

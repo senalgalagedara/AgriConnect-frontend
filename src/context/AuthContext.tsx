@@ -54,61 +54,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return u;
   }
 
-  const fetchSession = useCallback(async () => {
-    try {
-      const data = await apiRequest<{ user: any | null }>(`/auth/session`);
-      setUser(normalizeUser(data.user));
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 401) {
-        setUser(null); // session expired / not logged in
-        if (!hasLoggedInitial401.current && process.env.NODE_ENV !== 'production') {
-          console.info('[auth] No active session (401 from /auth/session). This is normal if user not logged in.');
-          hasLoggedInitial401.current = true;
-        }
-      } else if (err instanceof ApiError && err.status >= 500) {
-        // Backend server error or not running - silently set user to null
-        setUser(null);
-        if (!hasLoggedInitial401.current && process.env.NODE_ENV !== 'production') {
-          console.info('[auth] Auth backend not available. User will need to login when backend is ready.');
-          hasLoggedInitial401.current = true;
-        }
-      } else {
-        // network or server error -> keep existing user state but could log
-        console.warn('Session fetch failed', err);
-        setUser(null);
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { fetchSession(); }, [fetchSession]);
-
-  // Periodic refresh every 10 minutes & on window focus (if user present)
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    let interval: any;
-    const startInterval = () => {
-      interval = setInterval(() => {
-        fetchSession();
-      }, 10 * 60 * 1000);
-    };
-    startInterval();
-    const onFocus = () => {
-      fetchSession();
-    };
-    window.addEventListener('focus', onFocus);
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('focus', onFocus);
-    };
-  }, [fetchSession]);
+  // Sessions removed. Auth state is driven by explicit login/logout responses.
+  // Initial state remains unauthenticated until login action populates it.
+  useEffect(() => { setLoading(false); }, []);
 
   const login = async (email: string, password: string) => {
     setLoading(true);
     try {
       const data = await apiRequest<{ user: any }>(`/auth/login`, { method: 'POST', body: { email, password } });
-      setUser(normalizeUser(data.user));
+      // Expect login endpoint to return user object on success. Store it in memory.
+      if (data && (data as any).user) {
+        setUser(normalizeUser((data as any).user));
+      } else {
+        // If backend no longer returns user, keep user null and rely on token-based flows elsewhere
+        setUser(null);
+      }
     } finally {
       setLoading(false);
     }
@@ -117,7 +77,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     setLoading(true);
     try {
-      await apiRequest(`/auth/logout`, { method: 'POST' });
+      // Attempt to notify backend about logout if endpoint exists; ignore failures.
+      try { await apiRequest(`/auth/logout`, { method: 'POST' }); } catch (e) { /* ignore */ }
       setUser(null);
     } finally {
       setLoading(false);
@@ -125,7 +86,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const refresh = async () => {
-    await fetchSession();
+    // Sessions removed; refresh is a no-op. If you implement a token-based refresh endpoint,
+    // replace this with an API call that returns the current user.
+    return Promise.resolve();
   };
 
   const isAuthenticated = !!user;
