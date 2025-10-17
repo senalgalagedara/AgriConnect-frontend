@@ -225,6 +225,264 @@ export default function ItemPage() {
     }
   };
 
+  const generateInvoice = () => {
+    const today = new Date().toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+
+    // Calculate total value from all suppliers
+    const totalValue = suppliers.reduce((sum, s) => sum + (s.quantity * s.price_per_unit), 0);
+
+    // Create invoice HTML
+    let invoiceHTML = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Invoice - ${product?.product_name}</title>
+        <style>
+          body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 30px;
+            background: #f9fafb;
+          }
+          .invoice-container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+          }
+          .invoice-header {
+            border-bottom: 3px solid #22c55e;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+          }
+          .invoice-title {
+            font-size: 36px;
+            font-weight: bold;
+            color: #22c55e;
+            margin: 0;
+          }
+          .company-name {
+            font-size: 18px;
+            color: #6b7280;
+            margin-top: 5px;
+          }
+          .invoice-meta {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+          }
+          .meta-section h3 {
+            color: #374151;
+            font-size: 14px;
+            margin: 0 0 10px 0;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+          }
+          .meta-section p {
+            margin: 5px 0;
+            color: #6b7280;
+          }
+          .product-details {
+            background: #f3f4f6;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+          }
+          .product-details h2 {
+            color: #111827;
+            margin-top: 0;
+            font-size: 24px;
+          }
+          .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #e5e7eb;
+          }
+          .detail-row:last-child {
+            border-bottom: none;
+          }
+          .detail-label {
+            font-weight: 600;
+            color: #374151;
+          }
+          .detail-value {
+            color: #6b7280;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+          }
+          th {
+            background: #22c55e;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+          }
+          td {
+            padding: 12px;
+            border-bottom: 1px solid #e5e7eb;
+            color: #374151;
+          }
+          tr:hover {
+            background: #f9fafb;
+          }
+          .total-section {
+            text-align: right;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid #e5e7eb;
+          }
+          .total-row {
+            display: flex;
+            justify-content: flex-end;
+            gap: 20px;
+            margin: 10px 0;
+            font-size: 18px;
+          }
+          .total-row.grand-total {
+            font-size: 24px;
+            font-weight: bold;
+            color: #22c55e;
+            margin-top: 15px;
+          }
+          .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+            text-align: center;
+            color: #9ca3af;
+            font-size: 12px;
+          }
+          @media print {
+            body {
+              margin: 0;
+              padding: 0;
+              background: white;
+            }
+            .invoice-container {
+              box-shadow: none;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="invoice-container">
+          <div class="invoice-header">
+            <h1 class="invoice-title">INVOICE</h1>
+            <p class="company-name">AgriConnect Inventory Management</p>
+          </div>
+
+          <div class="invoice-meta">
+            <div class="meta-section">
+              <h3>Invoice Date</h3>
+              <p>${today}</p>
+            </div>
+            <div class="meta-section">
+              <h3>Invoice Number</h3>
+              <p>INV-${product?.id}-${Date.now().toString().slice(-6)}</p>
+            </div>
+          </div>
+
+          <div class="product-details">
+            <h2>${product?.product_name}</h2>
+            <div class="detail-row">
+              <span class="detail-label">Product ID:</span>
+              <span class="detail-value">#${product?.id}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Current Stock:</span>
+              <span class="detail-value">${product?.current_stock} ${product?.unit}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Daily Stock Limit:</span>
+              <span class="detail-value">${product?.daily_limit} ${product?.unit}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Final Unit Price:</span>
+              <span class="detail-value">Rs. ${Number(product?.final_price).toFixed(2)}</span>
+            </div>
+          </div>
+
+          <h3 style="color: #374151; margin-bottom: 15px;">Supplier Details</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Supplier Name</th>
+                <th>Quantity (${product?.unit})</th>
+                <th>Unit Price (Rs.)</th>
+                <th>Supply Date</th>
+                <th>Total Value (Rs.)</th>
+              </tr>
+            </thead>
+            <tbody>
+    `;
+
+    suppliers.forEach((supplier, index) => {
+      const supplyDate = new Date(supplier.supply_date).toLocaleDateString();
+      const totalValue = supplier.quantity * supplier.price_per_unit;
+      
+      invoiceHTML += `
+              <tr>
+                <td>${index + 1}</td>
+                <td>${supplier.farmer_name}</td>
+                <td>${supplier.quantity}</td>
+                <td>Rs. ${Number(supplier.price_per_unit).toFixed(2)}</td>
+                <td>${supplyDate}</td>
+                <td>Rs. ${totalValue.toFixed(2)}</td>
+              </tr>
+      `;
+    });
+
+    invoiceHTML += `
+            </tbody>
+          </table>
+
+          <div class="total-section">
+            <div class="total-row">
+              <span>Total Suppliers:</span>
+              <span>${suppliers.length}</span>
+            </div>
+            <div class="total-row">
+              <span>Total Quantity:</span>
+              <span>${suppliers.reduce((sum, s) => sum + s.quantity, 0)} ${product?.unit}</span>
+            </div>
+            <div class="total-row grand-total">
+              <span>Grand Total:</span>
+              <span>Rs. ${totalValue.toFixed(2)}</span>
+            </div>
+          </div>
+
+          <div class="footer">
+            <p>Generated by AgriConnect Inventory Management System</p>
+            <p>This is a computer-generated invoice and does not require a signature.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    // Create blob and download
+    const blob = new Blob([invoiceHTML], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Invoice_${product?.product_name}_${Date.now()}.html`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
 
   if (loading) {
     return (
@@ -255,12 +513,11 @@ export default function ItemPage() {
   }
 
   return (
-    <>
-      <div className="dashboard">
-        <Sidebar />
-        <div className="main">
-          <Navbar />
-          <div className="content product-page">
+    <div className="dashboard">
+      <Sidebar />
+      <div className="main">
+        <Navbar />
+        <div className="content product-page">
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
               <button className="back-btn" onClick={() => router.back()} aria-label="Go back">← Back</button>
               <h2 style={{ margin: 0 }}>
@@ -350,9 +607,18 @@ export default function ItemPage() {
                 <button className="add-btn" onClick={() => setShowModal(true)}>
                   + Add Supplier
                 </button>
+                {/* Download invoice button placed under Add Supplier */}
+                <button className="invoice-btn" onClick={generateInvoice}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                  Download Invoice
+                </button>
               </div>
             </div>
-          </div>
+            </div>
         </div>
 
         {showModal && (
@@ -440,9 +706,7 @@ export default function ItemPage() {
           </div>
         )}
 
-      </div>
-
-      <style jsx>{`
+        <style jsx>{`
         /* Modal overlay/content - ensure centered */
         .modal-overlay {
           position: fixed;
@@ -556,10 +820,68 @@ export default function ItemPage() {
         }
         .back-btn:hover { background: #f3f4f6; transform: translateY(-1px); }
 
+        /* Invoice Section */
+        .invoice-section {
+          background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+          padding: 24px;
+          border-radius: 12px;
+          margin-top: 24px;
+          border: 2px solid #22c55e;
+          text-align: center;
+        }
+        .invoice-section h3 {
+          margin: 0 0 8px 0;
+          color: #166534;
+          font-size: 20px;
+        }
+        .invoice-description {
+          color: #15803d;
+          margin: 0 0 20px 0;
+          font-size: 14px;
+        }
+        .invoice-btn {
+          background: #22c55e;
+          color: white;
+          border: none;
+          padding: 12px 32px;
+          border-radius: 9999px;
+          font-weight: 700;
+          font-size: 16px;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          transition: all 0.2s ease;
+          box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+        }
+        /* Add spacing and compact style for the invoice button inside inventory panel */
+        .inventory-status .invoice-btn {
+          margin-top: 12px;
+          padding: 6px 12px;
+          font-size: 14px;
+          border-radius: 8px;
+          gap: 6px;
+        }
+        .invoice-btn:hover {
+          background: #16a34a;
+          transform: translateY(-2px);
+          box-shadow: 0 6px 16px rgba(34, 197, 94, 0.4);
+        }
+        .invoice-btn:active {
+          transform: translateY(0);
+        }
+        .invoice-btn svg {
+          animation: bounce 2s infinite;
+        }
+        @keyframes bounce {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-4px); }
+        }
+
         /* Responsive */
         @media (max-width: 560px) { .form-grid { grid-template-columns: 1fr; } .modal-content { max-height: 95vh; } }
         @media (max-height: 700px) { .modal-overlay { align-items: flex-start; } .modal-content { margin-top: 20px; margin-bottom: 20px; } }
       `}</style>
-    </>
+    </div>
   );
 }
