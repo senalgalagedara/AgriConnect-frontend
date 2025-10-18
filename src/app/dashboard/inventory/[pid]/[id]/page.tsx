@@ -243,18 +243,19 @@ export default function ItemPage() {
         <meta charset="UTF-8">
         <title>Invoice - ${product?.product_name}</title>
         <style>
+          * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+          }
           body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            max-width: 900px;
-            margin: 40px auto;
-            padding: 30px;
-            background: #f9fafb;
+            padding: 40px;
+            background: white;
           }
           .invoice-container {
-            background: white;
-            padding: 40px;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            max-width: 900px;
+            margin: 0 auto;
           }
           .invoice-header {
             border-bottom: 3px solid #22c55e;
@@ -265,12 +266,11 @@ export default function ItemPage() {
             font-size: 36px;
             font-weight: bold;
             color: #22c55e;
-            margin: 0;
+            margin: 0 0 5px 0;
           }
           .company-name {
             font-size: 18px;
             color: #6b7280;
-            margin-top: 5px;
           }
           .invoice-meta {
             display: flex;
@@ -296,7 +296,7 @@ export default function ItemPage() {
           }
           .product-details h2 {
             color: #111827;
-            margin-top: 0;
+            margin: 0 0 15px 0;
             font-size: 24px;
           }
           .detail-row {
@@ -315,6 +315,11 @@ export default function ItemPage() {
           .detail-value {
             color: #6b7280;
           }
+          .section-title {
+            color: #374151;
+            margin-bottom: 15px;
+            font-size: 18px;
+          }
           table {
             width: 100%;
             border-collapse: collapse;
@@ -332,8 +337,8 @@ export default function ItemPage() {
             border-bottom: 1px solid #e5e7eb;
             color: #374151;
           }
-          tr:hover {
-            background: #f9fafb;
+          tbody tr:last-child td {
+            border-bottom: none;
           }
           .total-section {
             text-align: right;
@@ -346,13 +351,15 @@ export default function ItemPage() {
             justify-content: flex-end;
             gap: 20px;
             margin: 10px 0;
-            font-size: 18px;
+            font-size: 16px;
           }
           .total-row.grand-total {
-            font-size: 24px;
+            font-size: 22px;
             font-weight: bold;
             color: #22c55e;
             margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px solid #e5e7eb;
           }
           .footer {
             margin-top: 40px;
@@ -364,12 +371,7 @@ export default function ItemPage() {
           }
           @media print {
             body {
-              margin: 0;
-              padding: 0;
-              background: white;
-            }
-            .invoice-container {
-              box-shadow: none;
+              padding: 20px;
             }
           }
         </style>
@@ -412,7 +414,7 @@ export default function ItemPage() {
             </div>
           </div>
 
-          <h3 style="color: #374151; margin-bottom: 15px;">Supplier Details</h3>
+          <h3 class="section-title">Supplier Details</h3>
           <table>
             <thead>
               <tr>
@@ -471,16 +473,23 @@ export default function ItemPage() {
       </html>
     `;
 
-    // Create blob and download
-    const blob = new Blob([invoiceHTML], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `Invoice_${product?.product_name}_${Date.now()}.html`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    // Open invoice in new window and trigger print dialog (Save as PDF)
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(invoiceHTML);
+      printWindow.document.close();
+      
+      // Wait for content to load then trigger print
+      printWindow.onload = () => {
+        printWindow.focus();
+        setTimeout(() => {
+          printWindow.print();
+          // Note: Window will close automatically after user cancels or completes the print/save dialog
+        }, 250);
+      };
+    } else {
+      alert('Please allow popups to download the invoice as PDF');
+    }
   };
 
 
@@ -678,6 +687,7 @@ export default function ItemPage() {
                       className="input-lg"
                       type="date"
                       name="supply_date"
+                      max={new Date().toISOString().split("T")[0]}
                       defaultValue={editingSupplier ? 
                         new Date(editingSupplier.supply_date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0]}
                     />
